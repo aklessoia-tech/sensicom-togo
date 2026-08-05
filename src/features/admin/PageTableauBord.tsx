@@ -16,6 +16,7 @@ import {
   calculerIndicateurs,
   chargerPersonnes,
   chargerSessions,
+  compterActesNonRattaches,
   repartitionDemographique,
   serieParThematique,
   serieParUniversite,
@@ -40,7 +41,17 @@ function aujourdhui(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function Indicateur({ titre, valeur, suffixe }: { titre: string; valeur: number | string; suffixe?: string }) {
+function Indicateur({
+  titre,
+  valeur,
+  suffixe,
+  aide,
+}: {
+  titre: string
+  valeur: number | string
+  suffixe?: string
+  aide?: string
+}) {
   return (
     <div className="card">
       <p className="text-xs text-slate-500 dark:text-slate-400">{titre}</p>
@@ -48,6 +59,7 @@ function Indicateur({ titre, valeur, suffixe }: { titre: string; valeur: number 
         {valeur}
         {suffixe && <span className="ml-0.5 text-base font-semibold text-slate-500">{suffixe}</span>}
       </p>
+      {aide && <p className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">{aide}</p>}
     </div>
   )
 }
@@ -57,15 +69,21 @@ export function PageTableauBord() {
   const [filtres, setFiltres] = useState<FiltresDashboard>({ debut: debutDuMois(), fin: aujourdhui() })
   const [sessions, setSessions] = useState<LigneSession[]>([])
   const [personnes, setPersonnes] = useState<LignePersonne[]>([])
+  const [actesNonRattaches, setActesNonRattaches] = useState(0)
   const [chargement, setChargement] = useState(true)
 
   useEffect(() => {
     let actif = true
     setChargement(true)
-    void Promise.all([chargerSessions(filtres), chargerPersonnes(filtres)]).then(([s, p]) => {
+    void Promise.all([
+      chargerSessions(filtres),
+      chargerPersonnes(filtres),
+      compterActesNonRattaches(filtres),
+    ]).then(([s, p, nr]) => {
       if (!actif) return
       setSessions(s)
       setPersonnes(p)
+      setActesNonRattaches(nr)
       setChargement(false)
     })
     return () => {
@@ -73,7 +91,10 @@ export function PageTableauBord() {
     }
   }, [filtres])
 
-  const indicateurs = useMemo(() => calculerIndicateurs(sessions, personnes), [sessions, personnes])
+  const indicateurs = useMemo(
+    () => calculerIndicateurs(sessions, personnes, actesNonRattaches),
+    [sessions, personnes, actesNonRattaches],
+  )
   const parUniversite = useMemo(() => serieParUniversite(sessions), [sessions])
   const parThematique = useMemo(() => serieParThematique(sessions), [sessions])
   const demographie = useMemo(() => repartitionDemographique(personnes), [personnes])
@@ -144,13 +165,18 @@ export function PageTableauBord() {
             <Indicateur titre="Taux de conversion" valeur={indicateurs.tauxConversion} suffixe="%" />
             <Indicateur titre="Taux d’engagement" valeur={indicateurs.tauxEngagement} suffixe="%" />
             <Indicateur titre="Personnes sensibilisées" valeur={indicateurs.sensibilises} />
-            <Indicateur titre="Actes réalisés" valeur={indicateurs.actes} />
+            <Indicateur titre="Actes rattachés" valeur={indicateurs.actes} />
             <Indicateur titre="Sessions" valeur={indicateurs.sessions} />
             <Indicateur titre="Présents déclarés" valeur={indicateurs.presents} />
             <Indicateur titre="Coupons émis" valeur={indicateurs.coupons} />
             <Indicateur
               titre="Coupons non convertis"
               valeur={Math.max(indicateurs.coupons - indicateurs.actes, 0)}
+            />
+            <Indicateur
+              titre="Actes sans coupon"
+              valeur={indicateurs.actesNonRattaches}
+              aide="Coupons illisibles ou perdus : hors taux de conversion."
             />
           </div>
 

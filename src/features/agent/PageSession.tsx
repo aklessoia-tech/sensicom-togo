@@ -262,19 +262,24 @@ export function PageSession() {
               .slice()
               .reverse()
               .map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-3 py-2">
-                  <span className="truncate font-mono text-xs">{c.numero}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                      c.syncState === 'synced'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
-                        : c.syncState === 'error'
-                          ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
-                          : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
-                    }`}
-                  >
-                    {c.syncState === 'synced' ? 'Synchronisé' : c.syncState === 'error' ? 'Erreur' : 'En attente'}
-                  </span>
+                <li key={c.id} className="py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate font-mono text-xs">{c.numero}</span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        c.syncState === 'synced'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                          : c.syncState === 'error'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
+                            : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                      }`}
+                    >
+                      {c.syncState === 'synced' ? 'Synchronisé' : c.syncState === 'error' ? 'Erreur' : 'En attente'}
+                    </span>
+                  </div>
+                  {c.syncState === 'error' && c.syncError && (
+                    <p className="mt-1 text-[11px] leading-snug text-red-700 dark:text-red-300">{c.syncError}</p>
+                  )}
                 </li>
               ))}
           </ul>

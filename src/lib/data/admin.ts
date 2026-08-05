@@ -17,6 +17,8 @@ export interface Indicateurs {
   sensibilises: number
   coupons: number
   actes: number
+  /** Actes à coupon illisible ou perdu : comptés à part, hors taux de conversion. */
+  actesNonRattaches: number
   depistages: number
   tauxEngagement: number
   tauxConversion: number
@@ -95,7 +97,24 @@ export async function chargerPersonnes(filtres: FiltresDashboard): Promise<Ligne
   return data as LignePersonne[]
 }
 
-export function calculerIndicateurs(sessions: LigneSession[], personnes: LignePersonne[]): Indicateurs {
+/** Actes enregistrés sans coupon rattaché, sur la période et le périmètre filtrés. */
+export async function compterActesNonRattaches(filtres: FiltresDashboard): Promise<number> {
+  if (!isSupabaseConfigured) return 0
+
+  let requete = supabase.from('v_actes_non_rattaches').select('id', { count: 'exact', head: true })
+  if (filtres.universiteId) requete = requete.eq('universite_id', filtres.universiteId)
+  if (filtres.debut) requete = requete.gte('date_acte', filtres.debut)
+  if (filtres.fin) requete = requete.lte('date_acte', filtres.fin)
+
+  const { count, error } = await requete
+  return error ? 0 : (count ?? 0)
+}
+
+export function calculerIndicateurs(
+  sessions: LigneSession[],
+  personnes: LignePersonne[],
+  actesNonRattaches = 0,
+): Indicateurs {
   const presents = sessions.reduce((n, s) => n + (s.nombre_presents ?? 0), 0)
   const sensibilises = personnes.length
   const actes = personnes.filter((p) => p.a_ete_pris_en_charge).length
@@ -107,6 +126,7 @@ export function calculerIndicateurs(sessions: LigneSession[], personnes: LignePe
     sensibilises,
     coupons,
     actes,
+    actesNonRattaches,
     depistages: actes,
     tauxEngagement: tauxSur(sensibilises, presents),
     tauxConversion: tauxSur(actes, sensibilises),

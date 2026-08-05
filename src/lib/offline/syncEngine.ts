@@ -51,12 +51,41 @@ export async function refreshPendingCount(): Promise<void> {
   emit({ pending: await db.outbox.count() })
 }
 
+/**
+ * Erreurs que le serveur rejettera identiquement à chaque tentative : numéro de
+ * coupon déjà pris, référence manquante, accès refusé. Les réessayer ne fait que
+ * retarder l'alerte de l'agent, qui doit réagir tant que la personne est devant lui.
+ */
+const CODES_DEFINITIFS = new Set(['23505', '23503', '23514', '42501'])
+
+const MESSAGES_DEFINITIFS: Record<string, string> = {
+  '23505': 'Ce numéro de coupon est déjà utilisé. Remettez un coupon de secours à la personne.',
+  '23503': 'Référence introuvable côté serveur (zone, session ou thématique supprimée).',
+  '23514': 'Donnée refusée par le serveur : valeur hors des valeurs autorisées.',
+  '42501': "Accès refusé : cette zone ne correspond pas à celle de votre compte.",
+}
+
+class ErreurSync extends Error {
+  definitive: boolean
+
+  constructor(message: string, definitive: boolean) {
+    super(message)
+    this.definitive = definitive
+  }
+}
+
 async function pushEntry(entry: OutboxEntry): Promise<void> {
   const { error } = await supabase
     .from(entry.table)
     .upsert(entry.payload, { onConflict: 'id' })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    const definitive = CODES_DEFINITIFS.has(error.code ?? '')
+    throw new ErreurSync(
+      definitive ? (MESSAGES_DEFINITIFS[error.code as string] ?? error.message) : error.message,
+      definitive,
+    )
+  }
 
   await db.outbox.delete(entry.id)
   await db.table(LOCAL_STORE[entry.table]).update(entry.recordId, {
@@ -89,8 +118,9 @@ export async function flushOutbox(): Promise<void> {
       const message = err instanceof Error ? err.message : String(err)
       lastError = message
       const attempts = entry.attempts + 1
+      const definitive = err instanceof ErreurSync && err.definitive
 
-      if (attempts >= MAX_ATTEMPTS) {
+      if (definitive || attempts >= MAX_ATTEMPTS) {
         await db.outbox.delete(entry.id)
         await db.table(LOCAL_STORE[entry.table]).update(entry.recordId, {
           syncState: 'error',
@@ -117,22 +147,26 @@ export async function flushOutbox(): Promise<void> {
 let intervalId: number | undefined
 
 export function startSyncEngine(): () => void {
-  const goOnline = () => {
-    emit({ online: true })
-    void flushOutbox()
+  // L'état est relu sur navigator plutôt que déduit de l'événement : sur le
+  // terrain, un « online » peut survenir alors que le lien reste inutilisable.
+  const majEtatReseau = () => {
+    const online = navigator.onLine
+    emit({ online })
+    if (online) void flushOutbox()
   }
-  const goOffline = () => emit({ online: false })
 
-  window.addEventListener('online', goOnline)
-  window.addEventListener('offline', goOffline)
+  window.addEventListener('online', majEtatReseau)
+  window.addEventListener('offline', majEtatReseau)
   intervalId = window.setInterval(() => void flushOutbox(), 60_000)
 
+  // Le moteur peut redémarrer (changement de profil) après un basculement :
+  // on réaligne le drapeau au lieu de garder celui figé au chargement du module.
+  majEtatReseau()
   void refreshPendingCount()
-  void flushOutbox()
 
   return () => {
-    window.removeEventListener('online', goOnline)
-    window.removeEventListener('offline', goOffline)
+    window.removeEventListener('online', majEtatReseau)
+    window.removeEventListener('offline', majEtatReseau)
     if (intervalId) window.clearInterval(intervalId)
   }
 }
