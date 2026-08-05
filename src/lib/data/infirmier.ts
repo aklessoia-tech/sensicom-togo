@@ -1,6 +1,7 @@
 import { db, enqueue } from '../offline/db'
 import { flushOutbox, refreshPendingCount } from '../offline/syncEngine'
 import { supabase, isSupabaseConfigured } from '../supabase/client'
+import { synchroniserReferentiels } from './referentiels'
 import type { ActeMedical, Coupon, Local, TypeActe } from '../domain/types'
 
 export interface CouponTrouve {
@@ -17,7 +18,10 @@ export interface CouponTrouve {
  */
 export async function rechercherCoupon(numero: string): Promise<CouponTrouve | null> {
   const cible = numero.trim().toUpperCase()
-  const referentiels = await db.referentiels.get('referentiels')
+  // Le cache est vide après une déconnexion : on le réamorce pour pouvoir
+  // nommer la zone et la thématique du coupon présenté.
+  const cache = await db.referentiels.get('referentiels')
+  const referentiels = cache ?? (await synchroniserReferentiels().then(() => db.referentiels.get('referentiels')))
 
   const libelles = (zoneId: string, thematiqueId: string) => {
     const zone = referentiels?.zones.find((z) => z.id === zoneId)
