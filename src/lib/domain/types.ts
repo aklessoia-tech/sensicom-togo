@@ -53,6 +53,8 @@ export interface Session {
   thematique_id: string
   date_session: string
   nombre_presents: number | null
+  /** Renseigné quand l'agent clôt la séance : une seule reste ouverte à la fois. */
+  cloturee_at: string | null
   created_at?: string
   updated_at?: string
 }

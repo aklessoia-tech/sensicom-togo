@@ -45,4 +45,22 @@
   .btn-danger {
     @apply btn bg-red-600 text-white hover:bg-red-700;
   }
+
+  /* Intitulé de section en capitales espacées, récurrent dans les maquettes. */
+  .surtitre {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400;
+  }
+
+  /* Pastille d'état : synchro, statut d'un acte, motif d'alerte. */
+  .pastille {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold;
+  }
+
+  .point {
+    @apply h-1.5 w-1.5 shrink-0 rounded-full;
+  }
+
+  .lien-discret {
+    @apply text-sm font-semibold text-brand-700 underline-offset-2 hover:underline dark:text-brand-300;
+  }
 }

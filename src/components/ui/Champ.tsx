@@ -34,10 +34,13 @@ interface SaisieProps extends InputHTMLAttributes<HTMLInputElement> {
   facultatif?: boolean
 }
 
-export function Saisie({ label, aide, erreur, obligatoire, facultatif, ...props }: SaisieProps) {
+export function Saisie({ label, aide, erreur, obligatoire, facultatif, className, ...props }: SaisieProps) {
   return (
     <Champ label={label} aide={aide} erreur={erreur} obligatoire={obligatoire} facultatif={facultatif}>
-      {(id) => <input id={id} className="input" aria-invalid={Boolean(erreur)} {...props} />}
+      {/* className complète le style de base du champ au lieu de le remplacer. */}
+      {(id) => (
+        <input id={id} className={`input ${className ?? ''}`} aria-invalid={Boolean(erreur)} {...props} />
+      )}
     </Champ>
   )
 }

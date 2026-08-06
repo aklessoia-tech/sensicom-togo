@@ -69,3 +69,21 @@ export const IconeHistorique = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8M12 7v5l4 2" />
   </Svg>
 )
+
+export const IconeCoche = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+    <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+  </svg>
+)
+
+export const IconeFleche = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
+  </svg>
+)
+
+export const IconeScan = () => (
+  <Svg>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8V5a2 2 0 0 1 2-2h3m8 0h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3m-8 0H5a2 2 0 0 1-2-2v-3M3 12h18" />
+  </Svg>
+)

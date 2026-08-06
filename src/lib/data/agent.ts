@@ -24,28 +24,72 @@ export interface NouvelleSession {
   nombre_presents: number | null
 }
 
+function chargeSession(s: Local<Session>) {
+  return {
+    id: s.id,
+    agent_id: s.agent_id,
+    universite_id: s.universite_id,
+    zone_id: s.zone_id,
+    thematique_id: s.thematique_id,
+    date_session: s.date_session,
+    nombre_presents: s.nombre_presents,
+    cloturee_at: s.cloturee_at,
+  }
+}
+
 export async function creerSession(saisie: NouvelleSession): Promise<Local<Session>> {
+  // Le serveur n'accepte qu'une séance ouverte par agent : la précédente est
+  // close d'office, faute de quoi la synchro rejetterait la nouvelle.
+  await cloreSessionsOuvertes(saisie.agent_id)
+
   const session: Local<Session> = {
     id: crypto.randomUUID(),
     ...saisie,
+    cloturee_at: null,
     syncState: 'pending',
     updatedLocalAt: Date.now(),
   }
 
   await db.sessions.put(session)
-  await enqueue('sessions', session.id, {
-    id: session.id,
-    agent_id: session.agent_id,
-    universite_id: session.universite_id,
-    zone_id: session.zone_id,
-    thematique_id: session.thematique_id,
-    date_session: session.date_session,
-    nombre_presents: session.nombre_presents,
-  })
+  await enqueue('sessions', session.id, chargeSession(session))
 
   await refreshPendingCount()
   void flushOutbox()
   return session
+}
+
+/** Clôt la séance : l'accueil agent bascule alors sur « sessions précédentes ». */
+export async function cloreSession(sessionId: string): Promise<void> {
+  const session = await db.sessions.get(sessionId)
+  if (!session || session.cloturee_at) return
+
+  const close: Local<Session> = {
+    ...session,
+    cloturee_at: new Date().toISOString(),
+    syncState: 'pending',
+    updatedLocalAt: Date.now(),
+  }
+
+  await db.sessions.put(close)
+  await enqueue('sessions', close.id, chargeSession(close))
+  await refreshPendingCount()
+  void flushOutbox()
+}
+
+async function cloreSessionsOuvertes(agentId: string): Promise<void> {
+  const toutes = await db.sessions.toArray()
+  for (const s of toutes.filter((x) => x.agent_id === agentId && !x.cloturee_at)) {
+    await cloreSession(s.id)
+  }
+}
+
+/** Séance active de l'agent, sur laquelle s'ouvre son accueil. */
+export async function sessionEnCours(agentId: string): Promise<Local<Session> | null> {
+  const toutes = await db.sessions.toArray()
+  const ouvertes = toutes
+    .filter((s) => s.agent_id === agentId && !s.cloturee_at)
+    .sort((a, b) => b.updatedLocalAt - a.updatedLocalAt)
+  return ouvertes[0] ?? null
 }
 
 export interface ResultatDoublon {

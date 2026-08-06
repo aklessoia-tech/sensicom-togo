@@ -40,7 +40,7 @@ export interface AlerteFraude {
   motif: string
 }
 
-interface LigneSession {
+export interface LigneSession {
   id: string
   date_session: string
   nombre_presents: number | null
@@ -49,6 +49,7 @@ interface LigneSession {
   thematique_id: string
   thematique: string
   campus: string
+  secteur: string
   nb_sensibilises: number
   nb_coupons: number
   nb_actes: number
@@ -251,6 +252,7 @@ async function sessionsLocales(filtres: FiltresDashboard): Promise<LigneSession[
         thematique_id: s.thematique_id,
         thematique: cache?.thematiques.find((t) => t.id === s.thematique_id)?.libelle ?? 'Inconnue',
         campus: cache?.zones.find((z) => z.id === s.zone_id)?.campus ?? 'Inconnu',
+        secteur: cache?.zones.find((z) => z.id === s.zone_id)?.secteur ?? '',
         nb_sensibilises: personnes.filter((p) => p.session_id === s.id).length,
         nb_coupons: couponsSession.length,
         nb_actes: couponsSession.filter((c) => couponsAvecActe.has(c.id)).length,
@@ -290,4 +292,4 @@ async function personnesLocales(filtres: FiltresDashboard): Promise<LignePersonn
     .filter((p) => !filtres.fin || p.date_session <= filtres.fin)
 }
 
-export type { LigneSession, LignePersonne }
+export type { LignePersonne }

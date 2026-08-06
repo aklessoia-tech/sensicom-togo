@@ -1,10 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../lib/offline/db'
 import { rapprocherActesLocaux, rechercherCoupon, type CouponTrouve } from '../../lib/data/infirmier'
 import { Saisie } from '../../components/ui/Champ'
 import { Alerte } from '../../components/ui/Alerte'
+import { IconeScan } from '../../components/ui/Icones'
+import { ScannerCoupon, scanDisponible } from '../../components/ui/ScannerCoupon'
+import { TYPES_ACTE } from '../../lib/domain/types'
+
+const LIBELLE_ACTE = Object.fromEntries(TYPES_ACTE.map((t) => [t.value, t.label]))
 
 export function PageAccueilInfirmier() {
   const naviguer = useNavigate()
@@ -12,11 +17,19 @@ export function PageAccueilInfirmier() {
   const [resultat, setResultat] = useState<CouponTrouve | null>(null)
   const [introuvable, setIntrouvable] = useState(false)
   const [recherche, setRecherche] = useState(false)
+  const [scanne, setScanne] = useState(false)
 
-  const enAttente = useLiveQuery(
-    () => db.actes.filter((a) => a.en_attente_rapprochement).count(),
+  const actesDuJour = useLiveQuery(
+    async () => {
+      const jour = new Date().toISOString().slice(0, 10)
+      const tous = await db.actes.toArray()
+      return tous
+        .filter((a) => a.date_acte === jour)
+        .sort((a, b) => b.updatedLocalAt - a.updatedLocalAt)
+        .slice(0, 8)
+    },
     [],
-    0,
+    [],
   )
 
   // Les coupons arrivent parfois après l'acte : on retente le rattachement à l'ouverture.
@@ -24,41 +37,71 @@ export function PageAccueilInfirmier() {
     void rapprocherActesLocaux()
   }, [])
 
-  async function chercher(e: FormEvent) {
-    e.preventDefault()
+  const lancerRecherche = useCallback(async (valeur: string) => {
     setRecherche(true)
     setIntrouvable(false)
     setResultat(null)
     try {
-      const trouve = await rechercherCoupon(numero)
+      const trouve = await rechercherCoupon(valeur)
       if (trouve) setResultat(trouve)
       else setIntrouvable(true)
     } finally {
       setRecherche(false)
     }
+  }, [])
+
+  async function chercher(e: FormEvent) {
+    e.preventDefault()
+    await lancerRecherche(numero)
   }
 
+  const surLecture = useCallback(
+    (valeur: string) => {
+      setScanne(false)
+      setNumero(valeur)
+      void lancerRecherche(valeur)
+    },
+    [lancerRecherche],
+  )
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {scanne && <ScannerCoupon onLecture={surLecture} onFermer={() => setScanne(false)} />}
+
       <div>
-        <h1 className="text-xl font-bold">Accueil infirmerie</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Recherchez le coupon présenté par la personne.
+        <h1 className="text-xl font-bold">Coupon présenté</h1>
+        <p className="mt-0.5 text-sm leading-snug text-slate-500 dark:text-slate-400">
+          Aucune identité n’est associée au coupon : seules la zone et la thématique sont connues.
         </p>
       </div>
 
-      <form onSubmit={chercher} className="card space-y-3">
+      <form onSubmit={chercher} className="space-y-3">
         <Saisie
-          label="Numéro de coupon"
+          label="Numéro"
           obligatoire
           value={numero}
           onChange={(e) => setNumero(e.target.value.toUpperCase())}
           placeholder="MAR-CN-UL-N-CITE-20260805-001"
           autoComplete="off"
-          aide="Saisissez ou scannez le numéro figurant sur le coupon."
+          className="font-mono"
         />
-        <button type="submit" disabled={recherche || !numero.trim()} className="btn-primary w-full">
-          {recherche ? 'Recherche…' : 'Rechercher le coupon'}
+        <div className="flex gap-2">
+          <button type="submit" disabled={recherche || !numero.trim()} className="btn-primary flex-1">
+            {recherche ? 'Recherche…' : 'Rechercher'}
+          </button>
+          {scanDisponible() && (
+            <button type="button" onClick={() => setScanne(true)} className="btn-secondary shrink-0">
+              <IconeScan />
+              Scanner
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => naviguer('/infirmier/acte?illisible=1')}
+          className="lien-discret block text-left"
+        >
+          Coupon illisible ou perdu
         </button>
       </form>
 
@@ -114,29 +157,56 @@ export function PageAccueilInfirmier() {
           >
             Enregistrer quand même
           </button>
-          <button
-            type="button"
-            onClick={() => naviguer('/infirmier/acte?illisible=1')}
-            className="btn-secondary w-full"
-          >
-            Coupon illisible ou perdu
-          </button>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => naviguer('/infirmier/acte?illisible=1')}
-        className="btn-secondary w-full"
-      >
-        Coupon illisible ou perdu
-      </button>
+      <section>
+        <h2 className="surtitre mb-2">Actes du jour</h2>
+        {actesDuJour.length === 0 ? (
+          <Alerte ton="info">Aucun acte enregistré aujourd’hui sur cet appareil.</Alerte>
+        ) : (
+          <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+            {actesDuJour.map((a) => {
+              const enAttente = a.en_attente_rapprochement
+              const couleur = enAttente
+                ? 'bg-amber-500'
+                : a.syncState === 'synced'
+                  ? 'bg-emerald-500'
+                  : a.syncState === 'error'
+                    ? 'bg-red-500'
+                    : 'bg-sky-500'
+              const etat = enAttente
+                ? 'En attente'
+                : a.syncState === 'synced'
+                  ? 'Synchronisé'
+                  : a.syncState === 'error'
+                    ? 'Erreur'
+                    : 'Rapprochement'
+              return (
+                <li key={a.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{LIBELLE_ACTE[a.type_acte]}</p>
+                    <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                      {a.coupon_illisible
+                        ? `Coupon illisible${a.zone_approximative ? ` · ${a.zone_approximative}` : ''}`
+                        : (a.numero_coupon_saisi ?? '—')}
+                    </p>
+                  </div>
+                  <span className="pastille shrink-0 text-slate-600 dark:text-slate-300">
+                    <span className={`point ${couleur}`} />
+                    {etat}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
 
-      {enAttente > 0 && (
-        <Alerte ton="info">
-          {enAttente} acte(s) en attente de rapprochement avec leur coupon.
-        </Alerte>
-      )}
+      <p className="pb-2 text-center text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+        Un acte enregistré sur un coupon non synchronisé est rattaché automatiquement à l’arrivée de la
+        session.
+      </p>
     </div>
   )
 }
