@@ -6,7 +6,7 @@
 import sharp from 'sharp'
 import { mkdir, writeFile } from 'node:fs/promises'
 
-const VERT = '#1f6a5a'
+const PRIMAIRE = '#1b7fbf'
 
 /** Croix de santé centrée ; `echelle` réduit le motif pour la variante maskable. */
 function svg(taille, echelle = 1, rayon = 0.1875) {
@@ -14,7 +14,7 @@ function svg(taille, echelle = 1, rayon = 0.1875) {
   const bras = (taille * 0.25) * echelle
   const trait = (taille * 0.11) * echelle
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${taille}" height="${taille}" viewBox="0 0 ${taille} ${taille}">
-  <rect width="${taille}" height="${taille}" rx="${taille * rayon}" fill="${VERT}"/>
+  <rect width="${taille}" height="${taille}" rx="${taille * rayon}" fill="${PRIMAIRE}"/>
   <path d="M${c} ${c - bras}V${c + bras}M${c - bras} ${c}H${c + bras}"
         stroke="#fff" stroke-width="${trait}" stroke-linecap="round"/>
 </svg>`

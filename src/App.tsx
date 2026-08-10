@@ -109,7 +109,13 @@ function Routage() {
   return (
     <Routes>
       {profile.role === 'agent' && (
-        <Route element={<Coquille titre="Espace agent" nav={NAV_AGENT} perimetre={perimetre} />}>
+        // L'agent reste sur le gabarit mobile quelle que soit la taille d'écran :
+        // il travaille debout, sur le terrain, jamais devant un PC.
+        <Route
+          element={
+            <Coquille titre="Espace agent" nav={NAV_AGENT} perimetre={perimetre} gabarit="mobile" />
+          }
+        >
           <Route path="/agent" element={<PageSessions />} />
           <Route path="/agent/nouvelle-session" element={<PageNouvelleSession />} />
           <Route path="/agent/session/:sessionId" element={<PageSession />} />
@@ -117,7 +123,24 @@ function Routage() {
       )}
 
       {profile.role === 'infirmier' && (
-        <Route element={<Coquille titre="Espace infirmerie" nav={NAV_INFIRMIER} perimetre={perimetre} />}>
+        <Route
+          element={
+            <Coquille
+              titre="Espace infirmerie"
+              nav={NAV_INFIRMIER}
+              perimetre={perimetre}
+              encartLateral={
+                <div className="rounded-[11px] bg-slate-50 p-3 dark:bg-slate-800/50">
+                  <p className="surtitre">Périmètre</p>
+                  <p className="mt-1.5 text-[12.5px] font-semibold leading-snug">{perimetre}</p>
+                  <p className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                    Vous ne voyez que les coupons de votre zone.
+                  </p>
+                </div>
+              }
+            />
+          }
+        >
           <Route path="/infirmier" element={<PageAccueilInfirmier />} />
           <Route path="/infirmier/acte" element={<PageActe />} />
           <Route path="/infirmier/historique" element={<PageHistorique />} />

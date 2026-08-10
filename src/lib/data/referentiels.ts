@@ -20,6 +20,12 @@ export async function lireReferentielsLocaux(): Promise<Referentiels> {
 export async function synchroniserReferentiels(): Promise<Referentiels> {
   if (!isSupabaseConfigured || !navigator.onLine) return lireReferentielsLocaux()
 
+  // Sans session, les politiques RLS ne renvoient aucune ligne — et sans erreur.
+  // Poursuivre écraserait le cache avec du vide : les écrans perdraient leurs
+  // libellés de zone jusqu'à la synchronisation suivante.
+  const { data: session } = await supabase.auth.getSession()
+  if (!session.session) return lireReferentielsLocaux()
+
   const [universites, zones, thematiques] = await Promise.all([
     supabase.from('universites').select('*').order('nom'),
     supabase.from('zones').select('*').order('campus'),

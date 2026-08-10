@@ -29,7 +29,8 @@ import { exporterCsv, exporterDhis2, exporterPdf } from '../../lib/data/exports'
 import { useReferentiels } from '../../hooks/useReferentiels'
 import { Alerte } from '../../components/ui/Alerte'
 
-const COULEURS = ['#123631', '#1f6a5a', '#2d8570', '#48a189', '#77bda9', '#a9d7c9', '#d4ebe4']
+// Sept tranches d'âge : dégradé du primaire foncé vers le bleu clair.
+const COULEURS = ['#0b3c5d', '#10598a', '#1b7fbf', '#5cb3e4', '#8fcbee', '#b9e0f7', '#dcf0fc']
 
 const MOIS = [
   'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
@@ -75,21 +76,28 @@ function Indicateur({
   valeur,
   suffixe,
   legende,
+  primaire = false,
 }: {
   titre: string
   valeur: number | string
   suffixe?: string
   legende?: string
+  /** Le premier indicateur porte le bleu de marque : c'est celui qu'on lit d'abord. */
+  primaire?: boolean
 }) {
   return (
     <div className="card">
-      <p className="surtitre">{titre}</p>
-      <p className="mt-1.5 text-3xl font-bold tracking-tight">
+      <p className="surtitre !text-[10.5px] !tracking-[.08em]">{titre}</p>
+      <p
+        className={`chiffres mt-2 text-[32px] font-bold leading-none tracking-[-.02em] ${
+          primaire ? 'text-brand-700 dark:text-brand-300' : ''
+        }`}
+      >
         {valeur}
-        {suffixe && <span className="ml-0.5 text-lg font-semibold text-slate-400">{suffixe}</span>}
+        {suffixe && <span className="ml-0.5 text-[18px] font-semibold">{suffixe}</span>}
       </p>
       {legende && (
-        <p className="mt-1.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400">{legende}</p>
+        <p className="mt-2 text-[11.5px] leading-snug text-slate-500 dark:text-slate-400">{legende}</p>
       )}
     </div>
   )
@@ -142,16 +150,19 @@ export function PageTableauBord() {
   const [toutesSessions, setToutesSessions] = useState(false)
   const sessionsAffichees = toutesSessions ? sessionsTriees : sessionsTriees.slice(0, 5)
 
+  // Les actes sans coupon comptent comme un signalement au même titre qu'un pic.
+  const nbAlertes = alertes.length + (indicateurs.actesNonRattaches > 0 ? 1 : 0)
+
   function majFiltre(patch: Partial<FiltresDashboard>) {
     setFiltres((f) => ({ ...f, ...patch }))
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-[18px]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold">Tableau de bord</h1>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <h1 className="text-[19px] font-bold tracking-tight">Tableau de bord</h1>
+          <p className="mt-0.5 text-[12px] text-slate-500 dark:text-slate-400">
             {periodeLisible(filtres.debut, filtres.fin)} ·{' '}
             {universiteChoisie ? universiteChoisie.nom : 'toutes universités'} · toutes thématiques
           </p>
@@ -163,21 +174,21 @@ export function PageTableauBord() {
             aria-label="Début de période"
             value={filtres.debut ?? ''}
             onChange={(e) => majFiltre({ debut: e.target.value })}
-            className="input !w-auto !py-1.5 text-xs"
+            className="input !w-[130px] !rounded-[9px] !py-2 !text-[12.5px]"
           />
-          <span className="text-xs text-slate-400">–</span>
+          <span className="text-slate-400">→</span>
           <input
             type="date"
             aria-label="Fin de période"
             value={filtres.fin ?? ''}
             onChange={(e) => majFiltre({ fin: e.target.value })}
-            className="input !w-auto !py-1.5 text-xs"
+            className="input !w-[130px] !rounded-[9px] !py-2 !text-[12.5px]"
           />
           <select
             aria-label="Université"
             value={filtres.universiteId ?? ''}
             onChange={(e) => majFiltre({ universiteId: e.target.value || undefined })}
-            className="input !w-auto !py-1.5 text-xs"
+            className="input !w-[170px] !rounded-[9px] !py-2 !text-[12.5px]"
           >
             <option value="">Toutes universités</option>
             {referentiels.universites.map((u) => (
@@ -186,18 +197,23 @@ export function PageTableauBord() {
               </option>
             ))}
           </select>
-          <div className="flex gap-1.5">
+
+          {/* Boutons d'export soudés : trois formats d'un même geste, séparés
+              par un simple filet plutôt que par des boutons distincts. */}
+          <div className="flex overflow-hidden rounded-[9px] border border-slate-300 dark:border-slate-700">
             {(
               [
                 ['CSV', () => exporterCsv(sessions, periode)],
                 ['PDF', () => exporterPdf(sessions, indicateurs, periode)],
                 ['DHIS2', () => exporterDhis2(sessions, periode)],
               ] as const
-            ).map(([label, action]) => (
+            ).map(([label, action], i) => (
               <button
                 key={label}
                 onClick={action}
-                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50 dark:border-slate-700 dark:text-brand-300 dark:hover:bg-brand-900/30"
+                className={`px-3 py-2 text-[12px] font-semibold text-brand-700 transition-colors duration-150 hover:bg-slate-100 dark:text-brand-300 dark:hover:bg-slate-800 ${
+                  i > 0 ? 'border-l border-slate-300 dark:border-slate-700' : ''
+                }`}
               >
                 {label}
               </button>
@@ -214,16 +230,17 @@ export function PageTableauBord() {
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Indicateur
+              primaire
               titre="Taux de conversion"
               valeur={nombreFr(indicateurs.tauxConversion)}
               suffixe="%"
-              legende={`${pluriel(indicateurs.actes, 'acte rattaché', 'actes rattachés')} sur ${indicateurs.sensibilises} sensibilisés`}
+              legende={`${pluriel(indicateurs.actes, 'acte rattaché', 'actes rattachés')} sur ${pluriel(indicateurs.sensibilises, 'sensibilisé', 'sensibilisés')}`}
             />
             <Indicateur
               titre="Taux d’engagement"
               valeur={nombreFr(indicateurs.tauxEngagement)}
               suffixe="%"
-              legende={`${indicateurs.sensibilises} sensibilisés sur ${indicateurs.presents} présents déclarés`}
+              legende={`${pluriel(indicateurs.sensibilises, 'sensibilisé', 'sensibilisés')} sur ${pluriel(indicateurs.presents, 'présent déclaré', 'présents déclarés')}`}
             />
             <Indicateur
               titre="Personnes sensibilisées"
@@ -251,8 +268,8 @@ export function PageTableauBord() {
                     <XAxis dataKey="cle" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} tickLine={false} axisLine={false} width={32} />
                     <Tooltip />
-                    <Bar dataKey="sensibilises" name="Sensibilisés" fill="#1f6a5a" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="actes" name="Actes" fill="#77bda9" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sensibilises" name="Sensibilisés" fill="#1b7fbf" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="actes" name="Actes" fill="#8fcbee" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -309,107 +326,118 @@ export function PageTableauBord() {
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="card lg:col-span-2">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold">Sessions de la période</h2>
-                {sessionsTriees.length > 5 && (
-                  <button
-                    type="button"
-                    onClick={() => setToutesSessions((v) => !v)}
-                    className="lien-discret text-xs"
-                  >
-                    {toutesSessions ? 'Réduire' : `Voir les ${sessionsTriees.length} sessions`}
-                  </button>
-                )}
-              </div>
-
-              <div className="-mx-4 overflow-x-auto px-4">
-                <table className="w-full min-w-[520px] text-left text-xs">
-                  <thead>
-                    <tr className="surtitre border-b border-slate-200 dark:border-slate-800">
-                      <th className="pb-2 pr-3 font-semibold">Date</th>
-                      <th className="pb-2 pr-3 font-semibold">Campus / secteur</th>
-                      <th className="pb-2 pr-3 font-semibold">Thématique</th>
-                      <th className="pb-2 pr-3 text-right font-semibold">Présents</th>
-                      <th className="pb-2 pr-3 text-right font-semibold">Sensib.</th>
-                      <th className="pb-2 pr-3 text-right font-semibold">Actes</th>
-                      <th className="pb-2 text-right font-semibold">Conv.</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                    {sessionsAffichees.map((s) => {
-                      const conv = s.nb_sensibilises > 0 ? (s.nb_actes / s.nb_sensibilises) * 100 : 0
-                      return (
-                        <tr key={s.id}>
-                          <td className="whitespace-nowrap py-2 pr-3">{jourMois(s.date_session)}</td>
-                          <td className="py-2 pr-3">
-                            {s.campus}
-                            {s.secteur && (
-                              <span className="block text-[11px] text-slate-500 dark:text-slate-400">
-                                {s.secteur}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2 pr-3 text-brand-700 dark:text-brand-300">{s.thematique}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{s.nombre_presents ?? '—'}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{s.nb_sensibilises}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{s.nb_actes}</td>
-                          <td className="py-2 text-right font-semibold tabular-nums">
-                            {conv.toFixed(1).replace('.', ',')} %
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+          <div className="card">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold">Sessions de la période</h2>
+              {sessionsTriees.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setToutesSessions((v) => !v)}
+                  className="lien-discret !text-xs"
+                >
+                  {toutesSessions ? 'Réduire' : `Voir les ${sessionsTriees.length} sessions`}
+                </button>
+              )}
             </div>
 
-            <div className="card">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold">Alertes anti-fraude</h2>
-                {alertes.length > 0 && (
-                  <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[11px] font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
-                    {alertes.length}
-                  </span>
-                )}
-              </div>
+            <div className="-mx-[18px] overflow-x-auto">
+              <table className="w-full min-w-[620px] text-left">
+                <thead>
+                  <tr className="border-y border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
+                    {(
+                      [
+                        ['Date', ''],
+                        ['Campus / secteur', ''],
+                        ['Thématique', ''],
+                        ['Présents', 'text-right'],
+                        ['Sensib.', 'text-right'],
+                        ['Actes', 'text-right'],
+                        ['Conv.', 'text-right w-[86px]'],
+                      ] as const
+                    ).map(([c, align], i) => (
+                      <th
+                        key={c}
+                        className={`py-2 text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 ${align} ${
+                          i === 0 ? 'pl-[18px] pr-3' : 'pr-3'
+                        } ${i === 6 ? 'pr-[18px]' : ''}`}
+                      >
+                        {c}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {sessionsAffichees.map((s) => {
+                    const conv = s.nb_sensibilises > 0 ? (s.nb_actes / s.nb_sensibilises) * 100 : 0
+                    return (
+                      <tr key={s.id} className="chiffres text-[12.5px]">
+                        <td className="whitespace-nowrap py-2.5 pl-[18px] pr-3">
+                          {jourMois(s.date_session)}
+                        </td>
+                        <td className="max-w-[280px] truncate whitespace-nowrap py-2.5 pr-3">
+                          {s.secteur ? `${s.campus} — ${s.secteur}` : s.campus}
+                        </td>
+                        <td className="max-w-[280px] truncate whitespace-nowrap py-2.5 pr-3">
+                          {s.thematique}
+                        </td>
+                        <td className="py-2.5 pr-3 text-right">{s.nombre_presents ?? '—'}</td>
+                        <td className="py-2.5 pr-3 text-right">{s.nb_sensibilises}</td>
+                        <td className="py-2.5 pr-3 text-right">{s.nb_actes}</td>
+                        {/* Espace insécable : le pourcentage ne doit jamais passer à la ligne. */}
+                        <td className="whitespace-nowrap py-2.5 pr-[18px] text-right font-semibold text-brand-700 dark:text-brand-300">
+                          {conv.toFixed(1).replace('.', ',')}&nbsp;%
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-              {alertes.length === 0 && indicateurs.actesNonRattaches === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Aucun pic anormal détecté avec les seuils actuels.
-                </p>
-              ) : (
-                <ul className="space-y-3">
-                  {alertes.slice(0, 4).map((a) => (
-                    <li key={`${a.agent_id}-${a.date_emission}`}>
-                      <p className="text-xs font-semibold">
-                        {a.agent_nom} — {pluriel(a.nb_coupons, 'coupon', 'coupons')} le{' '}
-                        {jourMois(a.date_emission)}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                        Moyenne de l’agent : {nombreFr(a.moyenne_agent)} · score z {nombreFr(a.score_z)}
-                      </p>
-                    </li>
-                  ))}
-                  {indicateurs.actesNonRattaches > 0 && (
-                    <li>
-                      <p className="text-xs font-semibold">
-                        {pluriel(indicateurs.actesNonRattaches, 'acte', 'actes')} sans coupon rattaché
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                        Coupons illisibles ou perdus, hors taux de conversion
-                      </p>
-                    </li>
-                  )}
-                </ul>
+          <div className="card">
+            <div className="mb-3.5 flex items-center gap-2.5">
+              <h2 className="text-sm font-semibold">Alertes anti-fraude</h2>
+              {nbAlertes > 0 && (
+                <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[11px] font-bold text-red-800 dark:bg-red-950 dark:text-red-300">
+                  {nbAlertes}
+                </span>
               )}
-
-              <Link to="/admin/alertes" className="lien-discret mt-3 block text-xs">
-                Régler les seuils
+              <Link to="/admin/alertes" className="lien-discret ml-auto !text-xs">
+                Ouvrir les alertes
               </Link>
             </div>
+
+            {nbAlertes === 0 ? (
+              <p className="text-[12.5px] text-slate-500 dark:text-slate-400">
+                Aucun pic anormal détecté avec les seuils actuels.
+              </p>
+            ) : (
+              <ul className="grid gap-[18px] md:grid-cols-3">
+                {alertes.slice(0, 3).map((a) => (
+                  // Filet rouge : dépassement de volume. Ambre : simple signalement.
+                  <li key={`${a.agent_id}-${a.date_emission}`} className="border-l-2 border-red-600 pl-3">
+                    <p className="text-[12.5px] font-semibold">
+                      {a.agent_nom} — {pluriel(a.nb_coupons, 'coupon', 'coupons')} le{' '}
+                      {jourMois(a.date_emission)}
+                    </p>
+                    <p className="mt-1 text-[11.5px] text-slate-500 dark:text-slate-400">
+                      Moyenne de l’agent : {nombreFr(a.moyenne_agent)} · score z {nombreFr(a.score_z)}
+                    </p>
+                  </li>
+                ))}
+                {indicateurs.actesNonRattaches > 0 && (
+                  <li className="border-l-2 border-amber-500 pl-3">
+                    <p className="text-[12.5px] font-semibold">
+                      {pluriel(indicateurs.actesNonRattaches, 'acte', 'actes')} sans coupon rattaché
+                    </p>
+                    <p className="mt-1 text-[11.5px] text-slate-500 dark:text-slate-400">
+                      Coupons illisibles ou perdus, hors taux de conversion
+                    </p>
+                  </li>
+                )}
+              </ul>
+            )}
           </div>
         </>
       )}

@@ -16,7 +16,7 @@ export default defineConfig({
         short_name: 'SensiCom',
         description: 'Sensibilisation communautaire et suivi des orientations santé',
         lang: 'fr',
-        theme_color: '#1f6a5a',
+        theme_color: '#1b7fbf',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
