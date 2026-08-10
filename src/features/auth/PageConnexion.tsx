@@ -1,11 +1,61 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { Saisie } from '../../components/ui/Champ'
 import { Alerte } from '../../components/ui/Alerte'
 import { BasculeTheme } from '../../components/layout/BasculeTheme'
-import { IconeFleche } from '../../components/ui/Icones'
+import {
+  IconeCoche,
+  IconeFleche,
+  IconePersonnes,
+  IconeSoin,
+  IconeTableau,
+} from '../../components/ui/Icones'
+import type { Role } from '../../lib/domain/types'
 
-const COMPTES_DEMO = ['agent@demo.tg', 'infirmier@demo.tg', 'admin@demo.tg']
+interface OptionRole {
+  role: Role
+  titre: string
+  detail: string
+  icone: ReactNode
+  motIdentifiant: string
+  action: string
+  compteDemo: string
+}
+
+/**
+ * Les appareils sont partagés et changent de main à chaque prise de poste : le
+ * choix du rôle oriente la saisie et l'écran d'arrivée. Il n'accorde aucun droit —
+ * le rôle réel vient du profil et reste imposé par les politiques RLS.
+ */
+const OPTIONS: OptionRole[] = [
+  {
+    role: 'agent',
+    titre: 'Agent de terrain',
+    detail: 'Sessions, saisie anonyme, coupons',
+    icone: <IconePersonnes />,
+    motIdentifiant: 'Identifiant agent',
+    action: 'Se connecter comme agent',
+    compteDemo: 'agent@demo.tg',
+  },
+  {
+    role: 'infirmier',
+    titre: 'Infirmerie',
+    detail: 'Recherche de coupon, actes',
+    icone: <IconeSoin />,
+    motIdentifiant: 'Identifiant infirmerie',
+    action: "Se connecter à l'infirmerie",
+    compteDemo: 'infirmier@demo.tg',
+  },
+  {
+    role: 'admin',
+    titre: 'Administration',
+    detail: 'Indicateurs, alertes, référentiels',
+    icone: <IconeTableau />,
+    motIdentifiant: 'Identifiant administrateur',
+    action: 'Se connecter comme administrateur',
+    compteDemo: 'admin@demo.tg',
+  },
+]
 
 /** Ce que la plateforme garantit ; repris en filet rouge sur le panneau de marque. */
 const ARGUMENTS = [
@@ -25,10 +75,13 @@ const ARGUMENTS = [
 
 export function PageConnexion() {
   const { connecter, modeDemo } = useAuth()
+  const [role, setRole] = useState<Role>('agent')
   const [email, setEmail] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
+
+  const option = OPTIONS.find((o) => o.role === role) as OptionRole
 
   async function soumettre(e: FormEvent) {
     e.preventDefault()
@@ -43,66 +96,14 @@ export function PageConnexion() {
     }
   }
 
-  /** En démonstration, la pastille remplit les deux champs : rien à retenir ni à taper. */
-  function choisirDemo(compte: string) {
-    setEmail(compte)
-    setMotDePasse('demo1234')
+  /** En démonstration, le choix du rôle remplit aussi les identifiants correspondants. */
+  function choisirRole(o: OptionRole) {
+    setRole(o.role)
+    if (modeDemo) {
+      setEmail(o.compteDemo)
+      setMotDePasse('demo1234')
+    }
   }
-
-  const formulaire = (
-    <form onSubmit={soumettre} className="space-y-4">
-      <Saisie
-        label="Adresse e-mail"
-        type="email"
-        inputMode="email"
-        autoComplete="username"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="vous@exemple.tg"
-      />
-      <Saisie
-        label="Mot de passe"
-        type="password"
-        autoComplete="current-password"
-        required
-        value={motDePasse}
-        onChange={(e) => setMotDePasse(e.target.value)}
-      />
-
-      {erreur && <Alerte ton="erreur">{erreur}</Alerte>}
-
-      <button type="submit" disabled={envoi} className="btn-primary w-full !min-h-[52px]">
-        {envoi ? 'Connexion…' : 'Se connecter'}
-        {!envoi && <IconeFleche />}
-      </button>
-    </form>
-  )
-
-  const blocDemo = modeDemo && (
-    <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800">
-      <p className="surtitre">Mode démonstration</p>
-      <div className="mt-2.5 flex flex-wrap gap-2">
-        {COMPTES_DEMO.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => choisirDemo(c)}
-            className={`min-h-[44px] rounded-full border px-3.5 text-xs font-semibold transition-colors ${
-              email === c
-                ? 'border-brand-200 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/40 dark:text-brand-200'
-                : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-      <p className="mt-2.5 text-[11.5px] leading-snug text-slate-500 dark:text-slate-400">
-        Mot de passe <code className="font-mono">demo1234</code>. Les données restent sur cet appareil.
-      </p>
-    </div>
-  )
 
   return (
     <div className="min-h-dvh bg-white dark:bg-slate-950 lg:flex">
@@ -124,7 +125,7 @@ export function PageConnexion() {
         <div className="mt-10 space-y-6">
           {ARGUMENTS.map((a) => (
             <div key={a.amorce} className="border-l-2 border-accent pl-4">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-accent">{a.amorce}</p>
+              <p className="amorce">{a.amorce}</p>
               <p className="mt-1 max-w-[38ch] text-[12.5px] leading-relaxed text-brand-100">{a.texte}</p>
             </div>
           ))}
@@ -151,13 +152,89 @@ export function PageConnexion() {
               </div>
             </div>
 
-            <h1 className="text-[22px] font-bold tracking-tight">Connexion</h1>
-            <p className="mb-5 mt-1 text-sm leading-snug text-slate-500 dark:text-slate-400">
-              Espace agent, infirmerie ou administration selon votre compte.
+            <h1 className="text-[22px] font-bold tracking-tight">Qui utilise cet appareil ?</h1>
+            <p className="mt-1 text-sm leading-snug text-slate-500 dark:text-slate-400">
+              Le rôle détermine ce que vous voyez. Il peut changer à chaque prise de poste.
             </p>
 
-            {formulaire}
-            {blocDemo}
+            <div className="mt-4 space-y-2" role="radiogroup" aria-label="Rôle">
+              {OPTIONS.map((o) => {
+                const actif = o.role === role
+                return (
+                  <button
+                    key={o.role}
+                    type="button"
+                    role="radio"
+                    aria-checked={actif}
+                    onClick={() => choisirRole(o)}
+                    className={`flex min-h-[76px] w-full items-center gap-3 rounded-[14px] p-3 text-left transition-colors duration-150 ${
+                      actif
+                        ? 'border-2 border-brand-600 bg-brand-50 dark:border-brand-500 dark:bg-brand-900/30'
+                        : 'border border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                        actif
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                      }`}
+                    >
+                      {o.icone}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-semibold">{o.titre}</span>
+                      <span className="mt-0.5 block text-[12px] leading-snug text-slate-500 dark:text-slate-400">
+                        {o.detail}
+                      </span>
+                    </span>
+                    {actif && (
+                      <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
+                        <IconeCoche />
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            <form onSubmit={soumettre} className="mt-5 space-y-4">
+              <Saisie
+                label={option.motIdentifiant}
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={modeDemo ? option.compteDemo : `${role}@exemple.tg`}
+              />
+              <Saisie
+                label="Mot de passe"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={motDePasse}
+                onChange={(e) => setMotDePasse(e.target.value)}
+              />
+
+              {erreur && <Alerte ton="erreur">{erreur}</Alerte>}
+
+              <button type="submit" disabled={envoi} className="btn-primary w-full !min-h-[52px]">
+                {envoi ? 'Connexion…' : option.action}
+                {!envoi && <IconeFleche />}
+              </button>
+            </form>
+
+            {modeDemo && (
+              <div className="mt-5 border-t border-slate-200 pt-4 dark:border-slate-800">
+                <p className="surtitre">Mode démonstration</p>
+                <p className="mt-2 text-[11.5px] leading-snug text-slate-500 dark:text-slate-400">
+                  Le choix du rôle remplit les identifiants. Mot de passe{' '}
+                  <code className="font-mono">demo1234</code>. Les données restent sur cet appareil.
+                </p>
+              </div>
+            )}
 
             <p className="mt-6 text-center text-[11px] leading-snug text-slate-500 dark:text-slate-400">
               Aucune donnée d’identité civile n’est collectée ni stockée, à aucune étape.
