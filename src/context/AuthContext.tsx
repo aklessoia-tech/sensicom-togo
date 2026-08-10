@@ -8,9 +8,14 @@ interface AuthValue {
   profile: Profile | null
   chargement: boolean
   modeDemo: boolean
+  /** Motif d'un accès refusé alors que les identifiants étaient bons. */
+  refusAcces: string | null
   connecter: (email: string, motDePasse: string) => Promise<void>
   deconnecter: () => Promise<void>
 }
+
+const REFUS_INACTIF =
+  'Votre compte n’est pas encore validé par l’administration. Réessayez une fois qu’il aura été activé.'
 
 const AuthContext = createContext<AuthValue | null>(null)
 const CLE_PROFIL = 'sensicom-profile'
@@ -23,8 +28,13 @@ function profilEnCache(): Profile | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [chargement, setChargement] = useState(true)
+  const [refusAcces, setRefusAcces] = useState<string | null>(null)
   const modeDemo = !isSupabaseConfigured
 
+  // Le contrôle vit ici, et non dans `connecter` : l'écouteur onAuthStateChange
+  // charge le profil de son côté dès l'ouverture de session. Une vérification
+  // faite après coup laisserait l'application s'afficher un instant, puis
+  // remonterait l'écran de connexion en effaçant le message.
   const chargerProfil = useCallback(async (userId: string) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
 
@@ -37,7 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const profil = data as Profile
+
+    if (!profil.actif) {
+      localStorage.removeItem(CLE_PROFIL)
+      setProfile(null)
+      setRefusAcces(REFUS_INACTIF)
+      await supabase.auth.signOut()
+      return
+    }
+
     localStorage.setItem(CLE_PROFIL, JSON.stringify(profil))
+    setRefusAcces(null)
     setProfile(profil)
   }, [])
 
@@ -77,11 +97,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      setRefusAcces(null)
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: identifiant,
         password: motDePasse,
       })
       if (error) throw new Error(error.message)
+
+      // chargerProfil écarte lui-même les comptes non validés et renseigne
+      // `refusAcces`, que l'écran de connexion affiche.
       await chargerProfil(data.user.id)
     },
     [modeDemo, chargerProfil],
@@ -104,7 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [modeDemo])
 
   return (
-    <AuthContext.Provider value={{ profile, chargement, modeDemo, connecter, deconnecter }}>
+    <AuthContext.Provider
+      value={{ profile, chargement, modeDemo, refusAcces, connecter, deconnecter }}
+    >
       {children}
     </AuthContext.Provider>
   )

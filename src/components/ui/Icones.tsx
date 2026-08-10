@@ -82,6 +82,23 @@ export const IconeFleche = () => (
   </svg>
 )
 
+export const IconeOeil = () => (
+  <Svg>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+)
+
+export const IconeOeilBarre = () => (
+  <Svg>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M9.9 5.2A9.8 9.8 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.9M6.5 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.6 9.6 0 0 0 4.3-1M3 3l18 18M9.9 9.9a3 3 0 0 0 4.2 4.2"
+    />
+  </Svg>
+)
+
 export const IconeScan = () => (
   <Svg>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 8V5a2 2 0 0 1 2-2h3m8 0h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3m-8 0H5a2 2 0 0 1-2-2v-3M3 12h18" />

@@ -1,5 +1,6 @@
 import type { ReactNode, SelectHTMLAttributes, InputHTMLAttributes } from 'react'
-import { useId } from 'react'
+import { useId, useState } from 'react'
+import { IconeOeil, IconeOeilBarre } from './Icones'
 
 interface ChampProps {
   label: string
@@ -40,6 +41,48 @@ export function Saisie({ label, aide, erreur, obligatoire, facultatif, className
       {/* className complète le style de base du champ au lieu de le remplacer. */}
       {(id) => (
         <input id={id} className={`input ${className ?? ''}`} aria-invalid={Boolean(erreur)} {...props} />
+      )}
+    </Champ>
+  )
+}
+
+/**
+ * Mot de passe avec bascule d'affichage : sur un clavier tactile, en plein
+ * soleil, une saisie masquée se retape trois fois. Le champ revient masqué à
+ * chaque montage — l'appareil est partagé.
+ */
+export function SaisieMotDePasse({
+  label,
+  aide,
+  erreur,
+  obligatoire,
+  facultatif,
+  className,
+  ...props
+}: Omit<SaisieProps, 'type'>) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <Champ label={label} aide={aide} erreur={erreur} obligatoire={obligatoire} facultatif={facultatif}>
+      {(id) => (
+        <div className="relative">
+          <input
+            id={id}
+            type={visible ? 'text' : 'password'}
+            className={`input pr-12 ${className ?? ''}`}
+            aria-invalid={Boolean(erreur)}
+            {...props}
+          />
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            aria-pressed={visible}
+            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-[11px] text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+          >
+            {visible ? <IconeOeilBarre /> : <IconeOeil />}
+          </button>
+        </div>
       )}
     </Champ>
   )

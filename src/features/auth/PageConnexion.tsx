@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { Saisie } from '../../components/ui/Champ'
+import { Saisie, SaisieMotDePasse } from '../../components/ui/Champ'
 import { Alerte } from '../../components/ui/Alerte'
 import { BasculeTheme } from '../../components/layout/BasculeTheme'
 import {
@@ -11,6 +11,7 @@ import {
   IconeTableau,
 } from '../../components/ui/Icones'
 import type { Role } from '../../lib/domain/types'
+import { PageDemandeCompte } from './PageDemandeCompte'
 
 interface OptionRole {
   role: Role
@@ -74,7 +75,8 @@ const ARGUMENTS = [
 ]
 
 export function PageConnexion() {
-  const { connecter, modeDemo } = useAuth()
+  const { connecter, modeDemo, refusAcces } = useAuth()
+  const [demande, setDemande] = useState(false)
   const [role, setRole] = useState<Role>('agent')
   const [email, setEmail] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
@@ -138,8 +140,9 @@ export function PageConnexion() {
         </div>
 
         <div className="flex flex-1 items-start justify-center px-5 pb-14 lg:items-center">
+          {/* La marque tient lieu d'en-tête sur mobile, où le panneau est masqué :
+              elle coiffe donc aussi bien la connexion que la demande de compte. */}
           <div className="w-full max-w-[352px]">
-            {/* Sur mobile, la marque tient lieu d'en-tête puisque le panneau est masqué. */}
             <div className="mb-7 flex items-center gap-3 lg:hidden">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-base font-bold text-white">
                 SC
@@ -151,6 +154,13 @@ export function PageConnexion() {
                 </p>
               </div>
             </div>
+
+            {/* Rendu conditionnel plutôt que masquage : un formulaire seulement
+                caché en CSS resterait atteignable au clavier et au lecteur d'écran. */}
+            {demande ? (
+              <PageDemandeCompte surRetour={() => setDemande(false)} />
+            ) : (
+            <div>
 
             <h1 className="text-[22px] font-bold tracking-tight">Qui utilise cet appareil ?</h1>
             <p className="mt-1 text-sm leading-snug text-slate-500 dark:text-slate-400">
@@ -209,22 +219,40 @@ export function PageConnexion() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={modeDemo ? option.compteDemo : `${role}@exemple.tg`}
               />
-              <Saisie
+              <SaisieMotDePasse
                 label="Mot de passe"
-                type="password"
                 autoComplete="current-password"
                 required
                 value={motDePasse}
                 onChange={(e) => setMotDePasse(e.target.value)}
               />
 
-              {erreur && <Alerte ton="erreur">{erreur}</Alerte>}
+              {/* refusAcces vient du contexte : le compte existe et le mot de
+                  passe est bon, c'est la validation qui manque. */}
+              {(erreur || refusAcces) && (
+                <Alerte ton={refusAcces ? 'avertissement' : 'erreur'}>{erreur ?? refusAcces}</Alerte>
+              )}
 
               <button type="submit" disabled={envoi} className="btn-primary w-full !min-h-[52px]">
                 {envoi ? 'Connexion…' : option.action}
                 {!envoi && <IconeFleche />}
               </button>
             </form>
+
+            {!modeDemo && (
+              <div className="mt-5 border-t border-slate-200 pt-4 text-center dark:border-slate-800">
+                <p className="text-[12.5px] text-slate-500 dark:text-slate-400">
+                  Vous n’avez pas encore de compte ?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDemande(true)}
+                  className="lien-discret mt-1"
+                >
+                  Demander un compte
+                </button>
+              </div>
+            )}
 
             {modeDemo && (
               <div className="mt-5 border-t border-slate-200 pt-4 dark:border-slate-800">
@@ -239,6 +267,8 @@ export function PageConnexion() {
             <p className="mt-6 text-center text-[11px] leading-snug text-slate-500 dark:text-slate-400">
               Aucune donnée d’identité civile n’est collectée ni stockée, à aucune étape.
             </p>
+            </div>
+            )}
           </div>
         </div>
       </div>

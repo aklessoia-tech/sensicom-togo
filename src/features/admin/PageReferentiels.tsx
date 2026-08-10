@@ -7,7 +7,7 @@ import {
 } from '../../lib/data/admin'
 import { isSupabaseConfigured } from '../../lib/supabase/client'
 import type { Profile, Role, Thematique, Universite, Zone } from '../../lib/domain/types'
-import { Liste, Saisie } from '../../components/ui/Champ'
+import { Liste, Saisie, SaisieMotDePasse } from '../../components/ui/Champ'
 import { Alerte } from '../../components/ui/Alerte'
 
 type Onglet = 'universites' | 'zones' | 'thematiques' | 'profiles'
@@ -251,9 +251,8 @@ export function PageReferentiels() {
               onChange={(e) => setCompte((c) => ({ ...c, email: e.target.value }))}
               placeholder="agent04@sensicom.tg"
             />
-            <Saisie
+            <SaisieMotDePasse
               label="Mot de passe provisoire"
-              type="text"
               obligatoire
               required
               minLength={8}

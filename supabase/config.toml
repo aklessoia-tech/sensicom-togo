@@ -1,0 +1,16 @@
+project_id = "hytoufroxntthremwuru"
+
+# Demande de compte : appelée par quelqu'un qui n'a pas encore de session, donc
+# sans jeton à vérifier. La fonction ne crée que des comptes inactifs et sans
+# zone, qui ne peuvent rien lire ni écrire tant que l'administration ne les a
+# pas validés.
+[functions.demander-compte]
+verify_jwt = false
+
+# Création par l'administration : la fonction relit elle-même le rôle en base,
+# mais la vérification de plateforme reste une première barrière.
+[functions.creer-compte]
+verify_jwt = true
+
+[functions.send-reminder-sms]
+verify_jwt = true
