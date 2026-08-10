@@ -5,6 +5,8 @@ import {
   listerReferentiel,
   supprimerReferentiel,
 } from '../../lib/data/admin'
+import { reinitialiserMotDePasse, supprimerCompte } from '../../lib/data/comptes'
+import { useAuth } from '../../context/AuthContext'
 import { isSupabaseConfigured } from '../../lib/supabase/client'
 import type { Profile, Role, Thematique, Universite, Zone } from '../../lib/domain/types'
 import { Liste, Saisie, SaisieMotDePasse } from '../../components/ui/Champ'
@@ -26,6 +28,7 @@ const ROLES: { value: Role; label: string }[] = [
 ]
 
 export function PageReferentiels() {
+  const { profile } = useAuth()
   const [onglet, setOnglet] = useState<Onglet>('universites')
   const [universites, setUniversites] = useState<Universite[]>([])
   const [zones, setZones] = useState<Zone[]>([])
@@ -42,6 +45,46 @@ export function PageReferentiels() {
     code_agent: '',
   })
   const [creation, setCreation] = useState(false)
+
+  const enAttente = profiles.filter((p) => !p.actif)
+  const [occupe, setOccupe] = useState<string | null>(null)
+  const profilCourant = profile?.id
+
+  async function reinitialiser(p: Profile) {
+    const nouveau = window.prompt(
+      `Nouveau mot de passe pour ${p.nom_affichage} (8 caractères minimum).\nIl faudra le lui communiquer.`,
+    )
+    if (nouveau === null) return
+
+    setMessage(null)
+    setOccupe(p.id)
+    try {
+      await reinitialiserMotDePasse(p.id, nouveau)
+      setMessage({ ton: 'succes', texte: `Mot de passe redéfini pour ${p.nom_affichage}.` })
+    } catch (err) {
+      setMessage({ ton: 'erreur', texte: err instanceof Error ? err.message : 'Échec' })
+    } finally {
+      setOccupe(null)
+    }
+  }
+
+  async function supprimerLeCompte(p: Profile) {
+    // Suppression définitive du compte d'authentification : une confirmation
+    // s'impose, il n'y a pas de corbeille.
+    if (!window.confirm(`Supprimer définitivement le compte de ${p.nom_affichage} ?`)) return
+
+    setMessage(null)
+    setOccupe(p.id)
+    try {
+      await supprimerCompte(p.id)
+      setMessage({ ton: 'succes', texte: `Compte de ${p.nom_affichage} supprimé.` })
+      await recharger()
+    } catch (err) {
+      setMessage({ ton: 'erreur', texte: err instanceof Error ? err.message : 'Échec' })
+    } finally {
+      setOccupe(null)
+    }
+  }
 
   async function ajouterCompte(e: FormEvent) {
     e.preventDefault()
@@ -146,6 +189,13 @@ export function PageReferentiels() {
     }
   }
 
+  // L'université découle de la zone : la laisser incohérente fausserait les
+  // agrégats du tableau de bord, qui filtrent par université.
+  function zonePatch(zoneId: string): Partial<Profile> {
+    const zone = zones.find((z) => z.id === zoneId)
+    return { zone_id: zoneId || null, universite_id: zone?.universite_id ?? null }
+  }
+
   async function majProfil(profil: Profile, patch: Partial<Profile>) {
     setMessage(null)
     try {
@@ -230,6 +280,71 @@ export function PageReferentiels() {
         </form>
       )}
 
+      {/* Les demandes remontent en tête : sans cela, un compte en attente se
+          perd au milieu de la liste et l'agent reste bloqué sans savoir pourquoi. */}
+      {onglet === 'profiles' && enAttente.length > 0 && (
+        <section className="card border-brand-200 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40">
+          <div className="mb-3 flex items-center gap-2.5">
+            <h2 className="text-sm font-semibold">
+              {enAttente.length > 1 ? 'Demandes de compte' : 'Demande de compte'}
+            </h2>
+            <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[11px] font-bold text-brand-800 dark:bg-brand-900 dark:text-brand-200">
+              {enAttente.length}
+            </span>
+          </div>
+
+          <ul className="space-y-2">
+            {enAttente.map((p) => (
+              <li
+                key={p.id}
+                className="flex flex-wrap items-center gap-3 rounded-[11px] bg-white p-3 dark:bg-slate-900"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] font-semibold">{p.nom_affichage}</p>
+                  <p className="text-[11.5px] text-slate-500 dark:text-slate-400">
+                    {p.role === 'agent' ? 'Agent de terrain' : p.role === 'infirmier' ? 'Infirmerie' : 'Administration'}
+                    {' · '}
+                    {p.zone_id
+                      ? (zones.find((z) => z.id === p.zone_id)?.campus ?? 'zone inconnue')
+                      : 'aucune zone attribuée'}
+                  </p>
+                </div>
+
+                <select
+                  aria-label={`Zone de ${p.nom_affichage}`}
+                  className="input !w-auto !py-2 !text-[12.5px]"
+                  value={p.zone_id ?? ''}
+                  onChange={(e) => void majProfil(p, zonePatch(e.target.value))}
+                >
+                  <option value="">Zone à attribuer…</option>
+                  {zones.map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.campus} — {z.secteur}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => void majProfil(p, { actif: true })}
+                  disabled={!isSupabaseConfigured || !p.zone_id}
+                  title={p.zone_id ? undefined : 'Attribuez d’abord une zone'}
+                  className="btn-primary !min-h-[38px] !py-2 text-xs"
+                >
+                  Activer
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-3 text-[11.5px] leading-snug text-slate-600 dark:text-slate-400">
+            Tant qu’un compte n’est pas activé, il ne peut ni consulter ni enregistrer quoi que ce
+            soit. Attribuez la zone avant d’activer : c’est elle qui détermine ce que la personne
+            verra.
+          </p>
+        </section>
+      )}
+
       {onglet === 'profiles' && (
         <form onSubmit={ajouterCompte} className="card space-y-3">
           <h2 className="text-sm font-semibold">Créer un compte</h2>
@@ -302,7 +417,8 @@ export function PageReferentiels() {
                   <th className="py-2 pr-3">Code</th>
                   <th className="py-2 pr-3">Rôle</th>
                   <th className="py-2 pr-3">Zone</th>
-                  <th className="py-2">Statut</th>
+                  <th className="py-2 pr-3">Statut</th>
+                  <th className="py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -351,7 +467,7 @@ export function PageReferentiels() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-2">
+                    <td className="py-2 pr-3">
                       <button
                         onClick={() => void majProfil(p, { actif: !p.actif })}
                         className={
@@ -361,6 +477,24 @@ export function PageReferentiels() {
                         }
                       >
                         {p.actif ? 'Actif' : 'Désactivé'}
+                      </button>
+                    </td>
+                    <td className="whitespace-nowrap py-2 text-right">
+                      <button
+                        onClick={() => void reinitialiser(p)}
+                        disabled={!isSupabaseConfigured || occupe === p.id}
+                        className="text-xs font-semibold text-brand-700 hover:underline disabled:opacity-40 dark:text-brand-300"
+                      >
+                        Mot de passe
+                      </button>
+                      <span className="px-2 text-slate-300 dark:text-slate-700">·</span>
+                      <button
+                        onClick={() => void supprimerLeCompte(p)}
+                        disabled={!isSupabaseConfigured || occupe === p.id || p.id === profilCourant}
+                        title={p.id === profilCourant ? 'Vous ne pouvez pas supprimer votre propre compte' : undefined}
+                        className="text-xs font-semibold text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
+                      >
+                        Supprimer
                       </button>
                     </td>
                   </tr>

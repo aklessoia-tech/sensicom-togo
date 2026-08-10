@@ -18,6 +18,7 @@ import {
   chargerPersonnes,
   chargerSessions,
   compterActesNonRattaches,
+  compterDemandesEnAttente,
   repartitionDemographique,
   serieParUniversite,
   type AlerteFraude,
@@ -110,6 +111,7 @@ export function PageTableauBord() {
   const [personnes, setPersonnes] = useState<LignePersonne[]>([])
   const [actesNonRattaches, setActesNonRattaches] = useState(0)
   const [alertes, setAlertes] = useState<AlerteFraude[]>([])
+  const [nbDemandes, setNbDemandes] = useState(0)
   const [chargement, setChargement] = useState(true)
 
   useEffect(() => {
@@ -120,12 +122,14 @@ export function PageTableauBord() {
       chargerPersonnes(filtres),
       compterActesNonRattaches(filtres),
       chargerAlertesFraude(),
-    ]).then(([s, p, nr, al]) => {
+      compterDemandesEnAttente(),
+    ]).then(([s, p, nr, al, dem]) => {
       if (!actif) return
       setSessions(s)
       setPersonnes(p)
       setActesNonRattaches(nr)
       setAlertes(al)
+      setNbDemandes(dem)
       setChargement(false)
     })
     return () => {
@@ -221,6 +225,19 @@ export function PageTableauBord() {
           </div>
         </div>
       </div>
+
+      {/* L'admin arrive ici : une demande en attente doit se voir sans avoir à
+          ouvrir les référentiels. */}
+      {nbDemandes > 0 && (
+        <Alerte ton="info" titre={nbDemandes > 1 ? 'Demandes de compte' : 'Demande de compte'}>
+          {nbDemandes > 1
+            ? `${nbDemandes} personnes attendent la validation de leur compte.`
+            : 'Une personne attend la validation de son compte.'}{' '}
+          <Link to="/admin/referentiels" className="font-semibold underline underline-offset-2">
+            Ouvrir les référentiels
+          </Link>
+        </Alerte>
+      )}
 
       {chargement ? (
         <Alerte ton="info">Chargement des indicateurs…</Alerte>

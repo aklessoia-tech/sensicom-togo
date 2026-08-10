@@ -134,6 +134,20 @@ export async function supprimerReferentiel(table: TableRef, id: string): Promise
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Comptes créés par une demande et pas encore validés. Sans ce décompte, une
+ * demande n'existe nulle part dans l'interface : l'agent attend, l'administration
+ * ne sait pas qu'elle doit agir.
+ */
+export async function compterDemandesEnAttente(): Promise<number> {
+  if (!isSupabaseConfigured) return 0
+  const { count, error } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('actif', false)
+  return error ? 0 : (count ?? 0)
+}
+
 export interface NouveauCompte {
   email: string
   mot_de_passe: string

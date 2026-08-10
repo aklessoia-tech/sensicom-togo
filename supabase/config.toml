@@ -14,3 +14,8 @@ verify_jwt = true
 
 [functions.send-reminder-sms]
 verify_jwt = true
+
+# Suppression de compte et réinitialisation de mot de passe : la fonction relit
+# elle-même le rôle en base, la vérification de plateforme reste une première barrière.
+[functions.gerer-compte]
+verify_jwt = true

@@ -5,7 +5,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { startSyncEngine } from './lib/offline/syncEngine'
 import { rejouerFileSms } from './lib/supabase/sms'
 import { rapprocherActesLocaux } from './lib/data/infirmier'
-import { chargerAlertesFraude } from './lib/data/admin'
+import { chargerAlertesFraude, compterDemandesEnAttente } from './lib/data/admin'
 import { useReferentiels } from './hooks/useReferentiels'
 import { Coquille, type EntreeNav } from './components/layout/Coquille'
 import { BandeauMaj } from './components/layout/BandeauMaj'
@@ -63,12 +63,23 @@ function Routage() {
   const { profile, chargement } = useAuth()
   const { referentiels } = useReferentiels()
   const [nbAlertes, setNbAlertes] = useState(0)
+  const [nbDemandes, setNbDemandes] = useState(0)
 
-  // Le compteur d'alertes est porté par la navigation : l'admin doit le voir
-  // depuis n'importe quel écran, pas seulement depuis le tableau de bord.
+  // Alertes et demandes de compte sont portées par la navigation : l'admin doit
+  // les voir depuis n'importe quel écran, pas seulement depuis leur page.
+  // Le rafraîchissement périodique évite qu'une demande arrivée en cours de
+  // session passe inaperçue jusqu'au prochain rechargement.
   useEffect(() => {
     if (profile?.role !== 'admin') return
-    void chargerAlertesFraude().then((a) => setNbAlertes(a.length))
+
+    const relever = () => {
+      void chargerAlertesFraude().then((a) => setNbAlertes(a.length))
+      void compterDemandesEnAttente().then(setNbDemandes)
+    }
+
+    relever()
+    const minuterie = setInterval(relever, 60_000)
+    return () => clearInterval(minuterie)
   }, [profile?.role])
 
   useEffect(() => {
@@ -102,9 +113,13 @@ function Routage() {
   const zone = referentiels.zones.find((z) => z.id === profile.zone_id)
   const perimetre = zone ? `${zone.campus} — ${zone.secteur}` : 'Périmètre national'
 
-  const navAdmin = NAV_ADMIN.map((e) =>
-    e.to === '/admin/alertes' ? { ...e, badge: nbAlertes || undefined } : e,
-  )
+  const navAdmin = NAV_ADMIN.map((e) => {
+    if (e.to === '/admin/alertes') return { ...e, badge: nbAlertes || undefined }
+    // Une demande de compte n'est pas une anomalie : pastille bleue, pas rouge.
+    if (e.to === '/admin/referentiels')
+      return { ...e, badge: nbDemandes || undefined, tonBadge: 'info' as const }
+    return e
+  })
 
   return (
     <Routes>
