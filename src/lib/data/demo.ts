@@ -10,6 +10,7 @@ export const COMPTES_DEMO: Record<string, Profile> = {
   'agent@demo.tg': {
     id: '11111111-1111-4111-8111-111111111111',
     role: 'agent',
+    code_agent: 'D01',
     nom_affichage: 'Agent démonstration',
     zone_id: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
     universite_id: 'ffffffff-1111-4111-8111-ffffffffffff',
@@ -18,6 +19,7 @@ export const COMPTES_DEMO: Record<string, Profile> = {
   'infirmier@demo.tg': {
     id: '22222222-2222-4222-8222-222222222222',
     role: 'infirmier',
+    code_agent: 'D02',
     nom_affichage: 'Infirmier démonstration',
     zone_id: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
     universite_id: 'ffffffff-1111-4111-8111-ffffffffffff',
@@ -26,6 +28,7 @@ export const COMPTES_DEMO: Record<string, Profile> = {
   'admin@demo.tg': {
     id: '33333333-3333-4333-8333-333333333333',
     role: 'admin',
+    code_agent: null,
     nom_affichage: 'Administrateur démonstration',
     zone_id: null,
     universite_id: null,

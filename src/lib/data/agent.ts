@@ -146,15 +146,23 @@ export async function enregistrerPersonne(saisie: NouvellePersonne): Promise<Loc
   return personne
 }
 
-/** Numéro séquentiel calculé localement pour rester utilisable hors ligne. */
+/**
+ * Numéro séquentiel calculé localement pour rester utilisable hors ligne. Le
+ * compteur ne porte que sur les coupons du même agent : c'est son code, présent
+ * dans le numéro, qui garantit l'unicité face aux autres agents de la zone.
+ */
 export async function prochainNumeroCoupon(
   universite: Universite,
   zone: Zone,
   date: string,
+  codeAgent: string | null | undefined,
 ): Promise<string> {
   const dejaEmis = await db.coupons.where('zone_id').equals(zone.id).toArray()
-  const duJour = dejaEmis.filter((c) => c.date_emission === date && !c.genere_secours)
-  return formaterNumeroCoupon(universite, zone, date, duJour.length + 1)
+  const prefixeAgent = `-${(codeAgent ?? 'XX').toUpperCase()}-`
+  const duJour = dejaEmis.filter(
+    (c) => c.date_emission === date && !c.genere_secours && c.numero.includes(prefixeAgent),
+  )
+  return formaterNumeroCoupon(universite, zone, date, codeAgent, duJour.length + 1)
 }
 
 export interface NouveauCoupon {

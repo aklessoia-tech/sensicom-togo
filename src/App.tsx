@@ -8,6 +8,7 @@ import { rapprocherActesLocaux } from './lib/data/infirmier'
 import { chargerAlertesFraude } from './lib/data/admin'
 import { useReferentiels } from './hooks/useReferentiels'
 import { Coquille, type EntreeNav } from './components/layout/Coquille'
+import { BandeauMaj } from './components/layout/BandeauMaj'
 import { PageConnexion } from './features/auth/PageConnexion'
 import { PageSessions } from './features/agent/PageSessions'
 import { PageNouvelleSession } from './features/agent/PageNouvelleSession'
@@ -148,6 +149,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routage />
+          <BandeauMaj />
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

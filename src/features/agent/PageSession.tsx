@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../lib/offline/db'
+import { useAuth } from '../../context/AuthContext'
 import { useReferentiels } from '../../hooks/useReferentiels'
 import {
   enregistrerCoupon,
@@ -19,6 +20,7 @@ import { Alerte } from '../../components/ui/Alerte'
 export function PageSession() {
   const { sessionId = '' } = useParams()
   const { referentiels } = useReferentiels()
+  const { profile } = useAuth()
 
   const session = useLiveQuery(() => db.sessions.get(sessionId), [sessionId])
   const personnes = useLiveQuery(
@@ -48,9 +50,11 @@ export function PageSession() {
 
   const proposerNumero = useCallback(async () => {
     if (!universite || !zone || !session) return
-    setNumeroCoupon(await prochainNumeroCoupon(universite, zone, session.date_session))
+    setNumeroCoupon(
+      await prochainNumeroCoupon(universite, zone, session.date_session, profile?.code_agent),
+    )
     setCouponSecours(false)
-  }, [universite, zone, session])
+  }, [universite, zone, session, profile?.code_agent])
 
   useEffect(() => {
     if (!numeroCoupon) void proposerNumero()
@@ -74,7 +78,7 @@ export function PageSession() {
 
   function genererSecours() {
     if (!universite || !zone || !session) return
-    setNumeroCoupon(genererCouponSecours(universite, zone, session.date_session))
+    setNumeroCoupon(genererCouponSecours(universite, zone, session.date_session, profile?.code_agent))
     setCouponSecours(true)
   }
 

@@ -6,20 +6,27 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      // « prompt » plutôt que mise à jour silencieuse : sur le terrain, un agent
+      // peut rester des jours sur une version ancienne sans le savoir. Le bandeau
+      // le prévient et le laisse recharger entre deux personnes, pas en pleine saisie.
+      registerType: 'prompt',
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'SensiCom Togo',
         short_name: 'SensiCom',
         description: 'Sensibilisation communautaire et suivi des orientations santé',
+        lang: 'fr',
         theme_color: '#1f6a5a',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
         icons: [
+          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
+          // Zone sûre respectée : Android rogne les icônes selon la forme du constructeur.
+          { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' },
-          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
         ],
       },
       workbox: {

@@ -1,5 +1,6 @@
 import { db, type OutboxEntry, type OutboxTable } from './db'
 import { supabase, isSupabaseConfigured } from '../supabase/client'
+import { erreurDefinitive, messageErreurSync } from '../domain/erreursSync'
 
 export interface SyncStatus {
   online: boolean
@@ -51,31 +52,6 @@ export async function refreshPendingCount(): Promise<void> {
   emit({ pending: await db.outbox.count() })
 }
 
-/**
- * Erreurs que le serveur rejettera identiquement à chaque tentative : numéro de
- * coupon déjà pris, référence manquante, accès refusé. Les réessayer ne fait que
- * retarder l'alerte de l'agent, qui doit réagir tant que la personne est devant lui.
- */
-const CODES_DEFINITIFS = new Set(['23505', '23503', '23514', '42501'])
-
-// Une violation d'unicité ne veut pas dire la même chose selon la table : le
-// message doit dire à l'agent quoi faire, pas nommer une contrainte Postgres.
-const MESSAGES_UNICITE: Partial<Record<OutboxTable, string>> = {
-  coupons: 'Ce numéro de coupon est déjà utilisé. Remettez un coupon de secours à la personne.',
-  sessions: 'Une séance identique existe déjà côté serveur.',
-}
-
-const MESSAGES_DEFINITIFS: Record<string, string> = {
-  '23503': 'Référence introuvable côté serveur (zone, session ou thématique supprimée).',
-  '23514': 'Donnée refusée par le serveur : valeur hors des valeurs autorisées.',
-  '42501': "Accès refusé : cette zone ne correspond pas à celle de votre compte.",
-}
-
-function messageDefinitif(code: string, table: OutboxTable, defaut: string): string {
-  if (code === '23505') return MESSAGES_UNICITE[table] ?? defaut
-  return MESSAGES_DEFINITIFS[code] ?? defaut
-}
-
 class ErreurSync extends Error {
   definitive: boolean
 
@@ -91,11 +67,9 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
     .upsert(entry.payload, { onConflict: 'id' })
 
   if (error) {
-    const code = error.code ?? ''
-    const definitive = CODES_DEFINITIFS.has(code)
     throw new ErreurSync(
-      definitive ? messageDefinitif(code, entry.table, error.message) : error.message,
-      definitive,
+      messageErreurSync(error.code, entry.table, error.message),
+      erreurDefinitive(error.code),
     )
   }
 

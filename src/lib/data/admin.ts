@@ -1,6 +1,17 @@
 import { supabase, isSupabaseConfigured } from '../supabase/client'
 import { db } from '../offline/db'
 import type { Genre, Profile, Thematique, TrancheAge, Universite, Zone } from '../domain/types'
+import type { LignePersonne, LigneSession } from '../domain/indicateurs'
+
+// Les calculs vivent dans le domaine ; ils restent réexportés ici, où les écrans
+// les cherchent déjà.
+export {
+  calculerIndicateurs,
+  repartitionDemographique,
+  serieParThematique,
+  serieParUniversite,
+} from '../domain/indicateurs'
+export type { Indicateurs, LignePersonne, LigneSession, PointSerie } from '../domain/indicateurs'
 
 export interface FiltresDashboard {
   universiteId?: string
@@ -11,25 +22,6 @@ export interface FiltresDashboard {
   fin?: string
 }
 
-export interface Indicateurs {
-  sessions: number
-  presents: number
-  sensibilises: number
-  coupons: number
-  actes: number
-  /** Actes à coupon illisible ou perdu : comptés à part, hors taux de conversion. */
-  actesNonRattaches: number
-  depistages: number
-  tauxEngagement: number
-  tauxConversion: number
-}
-
-export interface PointSerie {
-  cle: string
-  sensibilises: number
-  actes: number
-}
-
 export interface AlerteFraude {
   agent_id: string
   agent_nom: string
@@ -38,34 +30,6 @@ export interface AlerteFraude {
   moyenne_agent: number
   score_z: number
   motif: string
-}
-
-export interface LigneSession {
-  id: string
-  date_session: string
-  nombre_presents: number | null
-  universite_id: string
-  universite_nom: string
-  thematique_id: string
-  thematique: string
-  campus: string
-  secteur: string
-  nb_sensibilises: number
-  nb_coupons: number
-  nb_actes: number
-}
-
-interface LignePersonne {
-  genre: Genre
-  tranche_age: TrancheAge
-  date_session: string
-  universite_id: string
-  thematique_id: string
-  a_ete_pris_en_charge: boolean
-}
-
-function tauxSur(numerateur: number, denominateur: number): number {
-  return denominateur > 0 ? Math.round((numerateur / denominateur) * 1000) / 10 : 0
 }
 
 export async function chargerSessions(filtres: FiltresDashboard): Promise<LigneSession[]> {
@@ -109,59 +73,6 @@ export async function compterActesNonRattaches(filtres: FiltresDashboard): Promi
 
   const { count, error } = await requete
   return error ? 0 : (count ?? 0)
-}
-
-export function calculerIndicateurs(
-  sessions: LigneSession[],
-  personnes: LignePersonne[],
-  actesNonRattaches = 0,
-): Indicateurs {
-  const presents = sessions.reduce((n, s) => n + (s.nombre_presents ?? 0), 0)
-  const sensibilises = personnes.length
-  const actes = personnes.filter((p) => p.a_ete_pris_en_charge).length
-  const coupons = sessions.reduce((n, s) => n + s.nb_coupons, 0)
-
-  return {
-    sessions: sessions.length,
-    presents,
-    sensibilises,
-    coupons,
-    actes,
-    actesNonRattaches,
-    depistages: actes,
-    tauxEngagement: tauxSur(sensibilises, presents),
-    tauxConversion: tauxSur(actes, sensibilises),
-  }
-}
-
-export function serieParUniversite(sessions: LigneSession[]): PointSerie[] {
-  const agrege = new Map<string, PointSerie>()
-  for (const s of sessions) {
-    const point = agrege.get(s.universite_nom) ?? { cle: s.universite_nom, sensibilises: 0, actes: 0 }
-    point.sensibilises += s.nb_sensibilises
-    point.actes += s.nb_actes
-    agrege.set(s.universite_nom, point)
-  }
-  return [...agrege.values()]
-}
-
-export function serieParThematique(sessions: LigneSession[]): PointSerie[] {
-  const agrege = new Map<string, PointSerie>()
-  for (const s of sessions) {
-    const point = agrege.get(s.thematique) ?? { cle: s.thematique, sensibilises: 0, actes: 0 }
-    point.sensibilises += s.nb_sensibilises
-    point.actes += s.nb_actes
-    agrege.set(s.thematique, point)
-  }
-  return [...agrege.values()]
-}
-
-export function repartitionDemographique(personnes: LignePersonne[]): { cle: string; valeur: number }[] {
-  const agrege = new Map<string, number>()
-  for (const p of personnes) {
-    agrege.set(p.tranche_age, (agrege.get(p.tranche_age) ?? 0) + 1)
-  }
-  return [...agrege.entries()].map(([cle, valeur]) => ({ cle, valeur })).sort((a, b) => a.cle.localeCompare(b.cle))
 }
 
 export async function chargerAlertesFraude(): Promise<AlerteFraude[]> {
@@ -221,6 +132,38 @@ export async function supprimerReferentiel(table: TableRef, id: string): Promise
   if (!isSupabaseConfigured) throw new Error('Supabase non configuré : suppression indisponible')
   const { error } = await supabase.from(table).delete().eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+export interface NouveauCompte {
+  email: string
+  mot_de_passe: string
+  nom_affichage: string
+  role: Profile['role']
+  zone_id: string | null
+  universite_id: string | null
+  code_agent: string | null
+}
+
+/**
+ * Créer un utilisateur exige la clé de service, qui ne doit jamais atteindre le
+ * navigateur : l'opération est déléguée à une Edge Function, laquelle revérifie
+ * que l'appelant est bien administrateur avant d'agir.
+ */
+export async function creerCompte(compte: NouveauCompte): Promise<void> {
+  if (!isSupabaseConfigured) throw new Error('Supabase non configuré : création indisponible')
+
+  const { data, error } = await supabase.functions.invoke('creer-compte', { body: compte })
+
+  if (error) {
+    // Le corps de la réponse porte le motif exact ; le message du SDK ne dirait
+    // que « non-2xx », inexploitable pour l'administrateur.
+    const detail = await (error as { context?: Response }).context
+      ?.json()
+      .then((c: { erreur?: string }) => c?.erreur)
+      .catch(() => undefined)
+    throw new Error(detail ?? error.message)
+  }
+  if ((data as { erreur?: string })?.erreur) throw new Error((data as { erreur: string }).erreur)
 }
 
 // Repli hors Supabase : les données locales de l'appareil alimentent le tableau de bord,
@@ -292,4 +235,3 @@ async function personnesLocales(filtres: FiltresDashboard): Promise<LignePersonn
     .filter((p) => !filtres.fin || p.date_session <= filtres.fin)
 }
 
-export type { LignePersonne }

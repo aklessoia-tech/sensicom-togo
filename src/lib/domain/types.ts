@@ -41,6 +41,8 @@ export interface Profile {
   nom_affichage: string
   zone_id: string | null
   universite_id: string | null
+  /** Attribué par l'administration ; entre dans le numéro de coupon pour en garantir l'unicité. */
+  code_agent: string | null
   actif: boolean
   created_at?: string
 }
