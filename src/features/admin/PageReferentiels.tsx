@@ -6,6 +6,7 @@ import {
   supprimerReferentiel,
 } from '../../lib/data/admin'
 import { reinitialiserMotDePasse, supprimerCompte } from '../../lib/data/comptes'
+import { prochainCodeAgent } from '../../lib/domain/codeAgent'
 import { useAuth } from '../../context/AuthContext'
 import { isSupabaseConfigured } from '../../lib/supabase/client'
 import type { Profile, Role, Thematique, Universite, Zone } from '../../lib/domain/types'
@@ -104,6 +105,7 @@ export function PageReferentiels() {
         code_agent: compte.code_agent || null,
       })
       setMessage({ ton: 'succes', texte: `Compte créé pour ${compte.email}.` })
+      // Vidé avant le rechargement : celui-ci proposera le code suivant.
       setCompte({ nom_affichage: '', email: '', mot_de_passe: '', role: 'agent', zone_id: '', code_agent: '' })
       await recharger()
     } catch (err) {
@@ -124,6 +126,11 @@ export function PageReferentiels() {
     setZones(z)
     setThematiques(t)
     setProfiles(p)
+
+    // Le code est proposé d'après ceux déjà attribués, sans écraser une saisie
+    // en cours : l'administrateur reste libre de le remplacer.
+    const suggestion = prochainCodeAgent(p.map((x) => x.code_agent))
+    setCompte((c) => (c.code_agent ? c : { ...c, code_agent: suggestion }))
   }
 
   useEffect(() => {
@@ -346,13 +353,17 @@ export function PageReferentiels() {
       )}
 
       {onglet === 'profiles' && (
-        <form onSubmit={ajouterCompte} className="card space-y-3">
+        // Un couple e-mail + mot de passe ressemble à une connexion : sans ces
+        // attributs, le navigateur y injecte les identifiants enregistrés de
+        // l'administrateur, qui croit voir son propre compte se recréer.
+        <form onSubmit={ajouterCompte} className="card space-y-3" autoComplete="off">
           <h2 className="text-sm font-semibold">Créer un compte</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Saisie
               label="Nom affiché"
               obligatoire
               required
+              autoComplete="off"
               value={compte.nom_affichage}
               onChange={(e) => setCompte((c) => ({ ...c, nom_affichage: e.target.value }))}
               placeholder="Kossi A."
@@ -362,6 +373,8 @@ export function PageReferentiels() {
               type="email"
               obligatoire
               required
+              name="compte-nouvel-email"
+              autoComplete="off"
               value={compte.email}
               onChange={(e) => setCompte((c) => ({ ...c, email: e.target.value }))}
               placeholder="agent04@sensicom.tg"
@@ -371,6 +384,8 @@ export function PageReferentiels() {
               obligatoire
               required
               minLength={8}
+              name="compte-nouveau-mot-de-passe"
+              autoComplete="new-password"
               value={compte.mot_de_passe}
               onChange={(e) => setCompte((c) => ({ ...c, mot_de_passe: e.target.value }))}
               aide="8 caractères minimum, à communiquer à la personne."

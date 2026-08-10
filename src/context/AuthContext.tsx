@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client'
 import { amorcerReferentielsDemo, COMPTES_DEMO, MOT_DE_PASSE_DEMO } from '../lib/data/demo'
 import { clearLocalData, db } from '../lib/offline/db'
+import { traduireErreurAuth } from '../lib/domain/erreursAuth'
 import type { Profile } from '../lib/domain/types'
 
 interface AuthValue {
@@ -103,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: identifiant,
         password: motDePasse,
       })
-      if (error) throw new Error(error.message)
+      if (error) throw new Error(traduireErreurAuth(error.message))
 
       // chargerProfil écarte lui-même les comptes non validés et renseigne
       // `refusAcces`, que l'écran de connexion affiche.

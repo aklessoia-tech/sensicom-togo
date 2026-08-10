@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../supabase/client'
+import { traduireErreurAuth } from '../domain/erreursAuth'
 import type { Role } from '../domain/types'
 
 export interface DemandeCompte {
@@ -16,7 +17,9 @@ async function motifDeLErreur(error: unknown, defaut: string): Promise<string> {
     ?.json()
     .then((c: { erreur?: string }) => c?.erreur)
     .catch(() => undefined)
-  return detail ?? defaut
+  // Les messages de la fonction sont déjà en français ; ceux qui remontent
+  // directement de Supabase ne le sont pas.
+  return traduireErreurAuth(detail ?? defaut)
 }
 
 /**
