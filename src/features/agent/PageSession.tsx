@@ -10,7 +10,11 @@ import {
   prochainNumeroCoupon,
   verifierDoublon,
 } from '../../lib/data/agent'
-import { genererCouponSecours, numeroCouponValide } from '../../lib/domain/coupons'
+import {
+  genererCouponSecours,
+  numeroCouponAcceptable,
+  numeroCouponCanonique,
+} from '../../lib/domain/coupons'
 import { telephoneValide } from '../../lib/domain/telephone'
 import { envoyerRappelSms } from '../../lib/supabase/sms'
 import { GENRES, TRANCHES_AGE, type Genre, type TrancheAge } from '../../lib/domain/types'
@@ -105,8 +109,10 @@ export function PageSession() {
       setErreur('Le numéro de téléphone doit comporter 8 chiffres.')
       return
     }
-    if (!numeroCoupon.trim() || (!couponSecours && !numeroCouponValide(numeroCoupon))) {
-      setErreur('Numéro de coupon invalide. Format attendu : RÉGION-CAMPUS-ZONE-AAAAMMJJ-NNN.')
+    // Seule une saisie inexploitable est refusée : le numéro imprimé sur le
+    // carnet papier fait foi, c'est lui que la personne présentera à l'infirmerie.
+    if (!numeroCouponAcceptable(numeroCoupon)) {
+      setErreur('Saisissez le numéro figurant sur le coupon remis à la personne.')
       return
     }
 
@@ -238,8 +244,22 @@ export function PageSession() {
             obligatoire
             value={numeroCoupon}
             onChange={(e) => setNumeroCoupon(e.target.value.toUpperCase())}
-            aide={couponSecours ? 'Coupon numérique de secours généré.' : 'Proposé automatiquement, modifiable.'}
+            className="font-mono"
+            aide={
+              couponSecours
+                ? 'Coupon numérique de secours généré.'
+                : 'Proposé automatiquement. Remplacez-le par le numéro imprimé sur le coupon remis.'
+            }
           />
+
+          {/* Indicatif : un numéro hors format reste enregistrable, mais une
+              coquille de saisie empêcherait l'infirmerie de retrouver le coupon. */}
+          {numeroCoupon.trim() && !couponSecours && !numeroCouponCanonique(numeroCoupon) && (
+            <Alerte ton="info">
+              Ce numéro ne suit pas le format habituel. Vérifiez qu’il correspond bien au coupon
+              remis : c’est ainsi que l’infirmerie le retrouvera.
+            </Alerte>
+          )}
           <div className="flex gap-2">
             <button type="button" onClick={() => void proposerNumero()} className="btn-secondary flex-1 text-xs">
               Numéro suivant

@@ -3,7 +3,8 @@ import {
   estCouponSecours,
   formaterNumeroCoupon,
   genererCouponSecours,
-  numeroCouponValide,
+  numeroCouponAcceptable,
+  numeroCouponCanonique,
 } from './coupons'
 import type { Universite, Zone } from './types'
 
@@ -54,21 +55,49 @@ describe('formaterNumeroCoupon', () => {
   })
 })
 
-describe('numeroCouponValide', () => {
+describe('numeroCouponCanonique', () => {
   it('accepte un numéro au format courant', () => {
-    expect(numeroCouponValide('MAR-CN-UL-N-CITE-20260806-A01-001')).toBe(true)
+    expect(numeroCouponCanonique('MAR-CN-UL-N-CITE-20260806-A01-001')).toBe(true)
   })
 
   it('accepte un numéro saisi en minuscules ou entouré d’espaces', () => {
-    expect(numeroCouponValide('  mar-cn-ul-n-cite-20260806-a01-001  ')).toBe(true)
+    expect(numeroCouponCanonique('  mar-cn-ul-n-cite-20260806-a01-001  ')).toBe(true)
   })
 
   it('refuse un numéro sans code d’agent', () => {
-    expect(numeroCouponValide('MAR-CN-UL-N-CITE-20260806-001')).toBe(false)
+    expect(numeroCouponCanonique('MAR-CN-UL-N-CITE-20260806-001')).toBe(false)
   })
 
   it('refuse une séquence hors format', () => {
-    expect(numeroCouponValide('MAR-CN-UL-N-CITE-20260806-A01-1')).toBe(false)
+    expect(numeroCouponCanonique('MAR-CN-UL-N-CITE-20260806-A01-1')).toBe(false)
+  })
+})
+
+describe('numeroCouponAcceptable', () => {
+  it('accepte le numéro que l’application génère', () => {
+    expect(numeroCouponAcceptable('MAR-CN-UL-N-CITE-20260806-A01-001')).toBe(true)
+  })
+
+  // Les carnets papier portent leur propre numérotation, imprimée avant que
+  // l'application n'existe : la refuser obligerait l'agent à en inventer une.
+  it('accepte la numérotation d’un carnet papier', () => {
+    expect(numeroCouponAcceptable('000123')).toBe(true)
+    expect(numeroCouponAcceptable('UL/2026/0042')).toBe(true)
+    expect(numeroCouponAcceptable('LOT B - 017')).toBe(true)
+    expect(numeroCouponAcceptable('A.12.4')).toBe(true)
+  })
+
+  it('refuse une saisie inexploitable', () => {
+    expect(numeroCouponAcceptable('')).toBe(false)
+    expect(numeroCouponAcceptable('  ')).toBe(false)
+    expect(numeroCouponAcceptable('AB')).toBe(false)
+    expect(numeroCouponAcceptable('-123')).toBe(false)
+    expect(numeroCouponAcceptable('X'.repeat(65))).toBe(false)
+  })
+
+  it('refuse les caractères qui ne se relisent pas sur un coupon', () => {
+    expect(numeroCouponAcceptable('12<script>')).toBe(false)
+    expect(numeroCouponAcceptable('N°123')).toBe(false)
   })
 })
 

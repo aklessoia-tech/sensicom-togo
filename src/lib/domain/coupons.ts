@@ -52,10 +52,23 @@ export function formaterNumeroCoupon(
   ].join('-')
 }
 
-export function numeroCouponValide(numero: string): boolean {
+/** Numéro tel que l'application le génère. */
+export function numeroCouponCanonique(numero: string): boolean {
   return /^[A-Z0-9]{2,4}-[A-Z0-9]{1,3}-[A-Z0-9-]+-\d{8}-[A-Z0-9]{2,4}-\d{3}$/.test(
     numero.trim().toUpperCase(),
   )
+}
+
+/**
+ * Ce que l'application accepte d'enregistrer. Volontairement large : les carnets
+ * papier distribués sur le terrain portent leur propre numérotation, imprimée
+ * avant que l'application n'existe. Refuser ce numéro obligerait l'agent à en
+ * inventer un autre, et l'infirmerie ne retrouverait jamais le coupon présenté.
+ * L'unicité, elle, reste garantie par la base.
+ */
+export function numeroCouponAcceptable(numero: string): boolean {
+  const n = numero.trim().toUpperCase()
+  return n.length >= 3 && n.length <= 64 && /^[A-Z0-9][A-Z0-9\-/. ]*$/.test(n)
 }
 
 /**
