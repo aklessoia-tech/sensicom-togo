@@ -20,6 +20,8 @@ import { envoyerRappelSms } from '../../lib/supabase/sms'
 import { GENRES, TRANCHES_AGE, type Genre, type TrancheAge } from '../../lib/domain/types'
 import { BoutonsRadio, Liste, Saisie } from '../../components/ui/Champ'
 import { Alerte } from '../../components/ui/Alerte'
+import { IconeScan } from '../../components/ui/Icones'
+import { ScannerCoupon, scanDisponible } from '../../components/ui/ScannerCoupon'
 
 export function PageSession() {
   const { sessionId = '' } = useParams()
@@ -47,6 +49,7 @@ export function PageSession() {
   const [telephone, setTelephone] = useState('')
   const [numeroCoupon, setNumeroCoupon] = useState('')
   const [couponSecours, setCouponSecours] = useState(false)
+  const [scanne, setScanne] = useState(false)
   const [avertissementDoublon, setAvertissementDoublon] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<string | null>(null)
@@ -85,6 +88,13 @@ export function PageSession() {
     setNumeroCoupon(genererCouponSecours(universite, zone, session.date_session, profile?.code_agent))
     setCouponSecours(true)
   }
+
+  /** Un coupon scanné est un coupon papier bien réel : il n'est pas « de secours ». */
+  const surLectureCoupon = useCallback((valeur: string) => {
+    setScanne(false)
+    setNumeroCoupon(valeur)
+    setCouponSecours(false)
+  }, [])
 
   function reinitialiser() {
     setGenre('')
@@ -169,6 +179,8 @@ export function PageSession() {
 
   return (
     <div className="space-y-4">
+      {scanne && <ScannerCoupon onLecture={surLectureCoupon} onFermer={() => setScanne(false)} />}
+
       <div className="card">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -260,6 +272,16 @@ export function PageSession() {
               remis : c’est ainsi que l’infirmerie le retrouvera.
             </Alerte>
           )}
+          {/* Le scan passe avant les deux autres : c'est le geste normal quand
+              l'agent tient le coupon papier en main, et il écarte les fautes de
+              frappe sur un numéro que l'infirmerie devra retrouver à l'identique. */}
+          {scanDisponible() && (
+            <button type="button" onClick={() => setScanne(true)} className="btn-secondary w-full">
+              <IconeScan />
+              Scanner le coupon
+            </button>
+          )}
+
           <div className="flex gap-2">
             <button type="button" onClick={() => void proposerNumero()} className="btn-secondary flex-1 text-xs">
               Numéro suivant
