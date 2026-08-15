@@ -172,27 +172,33 @@ export function PageTableauBord() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            aria-label="Début de période"
-            value={filtres.debut ?? ''}
-            onChange={(e) => majFiltre({ debut: e.target.value })}
-            className="input !w-[130px] !rounded-[9px] !py-2 !text-[12.5px]"
-          />
-          <span className="text-slate-400">→</span>
-          <input
-            type="date"
-            aria-label="Fin de période"
-            value={filtres.fin ?? ''}
-            onChange={(e) => majFiltre({ fin: e.target.value })}
-            className="input !w-[130px] !rounded-[9px] !py-2 !text-[12.5px]"
-          />
+        {/* Sur téléphone les contrôles occupent toute la largeur plutôt que de
+            se disloquer en fin de ligne ; ils ne se rangent côte à côte qu'au
+            format bureau, où l'en-tête tient sur une seule ligne. */}
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+          <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-none">
+            <input
+              type="date"
+              aria-label="Début de période"
+              value={filtres.debut ?? ''}
+              onChange={(e) => majFiltre({ debut: e.target.value })}
+              className="input !w-full !rounded-[9px] !py-2 !text-[12.5px] md:!w-[130px]"
+            />
+            <span className="shrink-0 text-slate-400">→</span>
+            <input
+              type="date"
+              aria-label="Fin de période"
+              value={filtres.fin ?? ''}
+              onChange={(e) => majFiltre({ fin: e.target.value })}
+              className="input !w-full !rounded-[9px] !py-2 !text-[12.5px] md:!w-[130px]"
+            />
+          </div>
+
           <select
             aria-label="Université"
             value={filtres.universiteId ?? ''}
             onChange={(e) => majFiltre({ universiteId: e.target.value || undefined })}
-            className="input !w-[170px] !rounded-[9px] !py-2 !text-[12.5px]"
+            className="input !w-full !rounded-[9px] !py-2 !text-[12.5px] md:!w-[170px]"
           >
             <option value="">Toutes universités</option>
             {referentiels.universites.map((u) => (
@@ -204,7 +210,7 @@ export function PageTableauBord() {
 
           {/* Boutons d'export soudés : trois formats d'un même geste, séparés
               par un simple filet plutôt que par des boutons distincts. */}
-          <div className="flex overflow-hidden rounded-[9px] border border-slate-300 dark:border-slate-700">
+          <div className="flex w-full overflow-hidden rounded-[9px] border border-slate-300 dark:border-slate-700 md:w-auto">
             {(
               [
                 ['CSV', () => exporterCsv(sessions, periode)],
@@ -215,7 +221,7 @@ export function PageTableauBord() {
               <button
                 key={label}
                 onClick={action}
-                className={`px-3 py-2 text-[12px] font-semibold text-brand-700 transition-colors duration-150 hover:bg-slate-100 dark:text-brand-300 dark:hover:bg-slate-800 ${
+                className={`flex-1 py-2 text-[12px] font-semibold text-brand-700 transition-colors duration-150 hover:bg-slate-100 dark:text-brand-300 dark:hover:bg-slate-800 md:flex-none md:px-3 ${
                   i > 0 ? 'border-l border-slate-300 dark:border-slate-700' : ''
                 }`}
               >
@@ -357,7 +363,38 @@ export function PageTableauBord() {
               )}
             </div>
 
-            <div className="-mx-[18px] overflow-x-auto">
+            {/* Sept colonnes ne tiennent pas sur un téléphone : les faire défiler
+                latéralement rendrait le tableau illisible. Chaque séance devient
+                une ligne autonome, le tableau ne reparaît qu'à partir du bureau. */}
+            <ul className="filets md:hidden">
+              {sessionsAffichees.map((s) => {
+                const conv = s.nb_sensibilises > 0 ? (s.nb_actes / s.nb_sensibilises) * 100 : 0
+                return (
+                  <li key={s.id} className="py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="min-w-0 truncate text-[13.5px] font-semibold">
+                        <span className="chiffres text-slate-500 dark:text-slate-400">
+                          {jourMois(s.date_session)}
+                        </span>{' '}
+                        · {s.thematique}
+                      </p>
+                      <p className="chiffres shrink-0 text-[13.5px] font-bold text-brand-700 dark:text-brand-300">
+                        {conv.toFixed(1).replace('.', ',')}&nbsp;%
+                      </p>
+                    </div>
+                    <p className="mt-0.5 truncate text-[11.5px] text-slate-500 dark:text-slate-400">
+                      {s.secteur ? `${s.campus} — ${s.secteur}` : s.campus}
+                    </p>
+                    <p className="chiffres mt-1 text-[11.5px] text-slate-500 dark:text-slate-400">
+                      {s.nombre_presents ?? '—'} présents · {s.nb_sensibilises} sensib. ·{' '}
+                      {s.nb_actes} actes
+                    </p>
+                  </li>
+                )
+              })}
+            </ul>
+
+            <div className="-mx-[18px] hidden overflow-x-auto md:block">
               <table className="w-full min-w-[620px] text-left">
                 <thead>
                   <tr className="border-y border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
